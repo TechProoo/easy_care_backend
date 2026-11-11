@@ -2,6 +2,8 @@
 
 Proposed, not deployed. MySQL 8.4 integration and Laravel workflow tests remain required.
 
+Implementation note, 11 November 2026: Task 17 implements the five patient foundation tables below through Laravel migrations; the full document remains a proposal for later modules. Current and historical MRNs now share a database-enforced reservation registry: patient insert/number-change triggers maintain `patient_identifiers`, whose numbers and ownership cannot be rewritten or deleted. See the [patient storage contract](../LOCAL_DEVELOPMENT.md#patient-storage-foundation) for actual guards, normalization, model relationships and deferred API/access work. Use application migrations for installation; do not import this entire proposal into an existing application database.
+
 ## departments
 
 Staff organization and department-level requests.

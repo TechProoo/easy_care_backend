@@ -10,7 +10,7 @@ Updated 11 November 2026. Follow the stages in order. Tick a task only when its 
 - [x] Prepare the architecture proposal, database dictionary and frontend review.
 - [x] Publish the initial backend repository.
 
-The full 85-table proposal is not implemented as application migrations. The staff/role foundation is now migrated and covered by database/API tests; patient and other hospital workflows remain unimplemented. See the Stage 2 evidence below.
+The full 85-table proposal is not implemented as application migrations. Staff/roles, audit history, private files, command safeguards and patient storage are migrated and tested. Patient registration APIs and other hospital workflows remain to be implemented. See each stage's evidence below.
 
 ## How to use this checklist
 
@@ -76,10 +76,12 @@ Stage complete when shared safeguards work in tests and a failed operation canno
 
 ## Stage 5: Deliver the first complete patient workflow
 
-- [ ] **17. Create patient migrations and models.** Include demographics, categories, identifiers, contacts and relationships. Enforce patient-number uniqueness across current and historical identifiers. Add coverage structures when insurance work needs them.
+- [x] **17. Create patient migrations and models.** Include demographics, categories, identifiers, contacts and relationships. Enforce patient-number uniqueness across current and historical identifiers. Add coverage structures when insurance work needs them.
 - [ ] **18. Build registration, search and editing APIs.** Save related records together; validate required fields, dates and duplicate candidates. Provide pagination and authorized patient lookup by ID.
 - [ ] **19. Implement patient record management.** Add flags, access restrictions, card/category changes and controlled duplicate merging. Preserve identifiers and history, prevent merge cycles and audit changes.
 - [ ] **20. Connect patient screens and verify isolation.** Registration success must follow a committed save. Resolve profile URLs by patient ID, remove sample-patient fallback and scope all patient state correctly.
+
+Task 17 completed on 11 November 2026: an additive migration creates patient categories, demographics, number reservations, emergency/next-of-kin contacts and directed family relationships, with five models and synthetic factories. Foreign keys, unique keys and database guards enforce references, contact priority, distinct relatives, valid status/version state and canonical numbering. Patient insert/MRN-change triggers reserve every current number and preserve retired numbers in one globally unique registry, including raw SQL writes. Number reservations cannot be rewritten, moved, reactivated or deleted; collisions roll back the entire statement. Seven initial categories match the current registration screen; repeat seeding preserves local edits and adds no patients or patient-access grants. The migration and seeder are applied locally, with seven categories and zero patients, identifiers, contacts, family links, staff, files or commands. All 272 backend tests passed on MySQL (1,651 assertions); SQLite passed 268 (1,628 assertions), with four MySQL-only skips. The 59 new cases verify relationships, number collisions/history, rollback, Unicode/date handling, integrity guards and migration reapplication. No frontend changes or browser run were required for this storage task. Patient APIs, approved access rules, allocation format, clinical audit and screen integration remain with their dependent tasks. Coverage/insurance structures remain deferred until that work needs them. See [the patient storage contract and relationships](LOCAL_DEVELOPMENT.md#patient-storage-foundation).
 
 Stage complete when staff can log in, register a patient, refresh, search and reopen the saved record without seeing another patient's data. This is the first major end-to-end milestone.
 
@@ -166,7 +168,7 @@ Stage complete when the hospital has accepted the working release and can operat
 
 ## Current next task
 
-**Task 17: create patient migrations and models.** Build demographics, categories, identifiers, contacts and relationships with patient-number uniqueness across current and historical identifiers. Use the shared verification recipe for constraints, relationships and rollback. Confirm the relevant Stage 1 hospital decisions before finalizing dependent patient workflows; the current staff-file ownership rule does not define patient access. Task 11 still needs hospital approval of its identity-verification and console-operator procedure. No unfinished task above is marked complete merely because its table exists in the proposal.
+**Task 18: build registration, search and editing APIs.** Save demographics and related records transactionally with audit and command confirmation; validate required fields, dates, references and duplicate candidates. Add authorized patient lookup, filtering and pagination, with version checks on edits. Confirm hospital patient-access rules and numbering/allocation requirements before finalizing dependent behavior; the current staff-file ownership rule does not define patient access. Extend the shared verification recipe with permitted/restricted patient cases. Stage 1 decisions remain unchecked, and Task 11 still needs hospital approval of its identity-verification and console-operator procedure. No unfinished task above is marked complete merely because its table exists in the proposal.
 
 ## Reference documents
 

@@ -52,6 +52,7 @@ For a foreground server, run `stop` and then `.\dev.cmd serve`. Press Ctrl+C to 
 - Append-only staff/security audit records, a permission-protected API and a read-only `/admin/audit` screen with filters and pagination.
 - Owner-scoped private uploads/downloads, file metadata and checksum verification; `/admin/files` provides the staff library.
 - A read-only `files:verify` console command checks the private file/database recovery set.
+- Patient demographic/category/identifier/contact/family-link tables and models, with database-enforced current and historical number reservations; patient APIs and screens follow in later tasks.
 - Private `backend/.env` is configured with the generated local database password and application key.
 
 `vendor/` contains installed PHP packages. `composer.lock` records their exact versions. `.env` and the project-local tools/database files are excluded from Git.
@@ -96,6 +97,6 @@ See [local development notes](docs/LOCAL_DEVELOPMENT.md) for database setup, tes
 - [Proposed MySQL schema](docs/architecture/schema.mysql.sql)
 - [Frontend/database review](docs/architecture/Frontend_Database_Review.md)
 
-The architecture and frontend review are design documents dated 4 November 2026. The Laravel development foundation was installed on 6 November 2026. The full 85-table schema remains a proposal; application migrations currently implement the staff/role foundation alongside Laravel's runtime tables. Patient, clinical, inventory and financial tables will be added with their respective workflows.
+The architecture and frontend review are design documents dated 4 November 2026. The Laravel development foundation was installed on 6 November 2026. The full 85-table schema remains a proposal; application migrations implement staff/roles, audit history, private files, command confirmations and the patient storage foundation alongside Laravel's runtime tables. Patient APIs, clinical, inventory and financial workflows follow their checklist stages. See the [patient storage contract](docs/LOCAL_DEVELOPMENT.md#patient-storage-foundation) for relationships and the number-reservation rules.
 
 Transaction safeguards: staff creation/edits, recovery issuance and uploads now require a per-submission `Idempotency-Key`. Database changes, audit and command completion commit together; exact retries confirm an existing resource and stale versions remain rejected. See [transaction and retry rules](docs/LOCAL_DEVELOPMENT.md#transaction-and-retry-rules) for the header, outcomes, lock order and file-recovery limits.

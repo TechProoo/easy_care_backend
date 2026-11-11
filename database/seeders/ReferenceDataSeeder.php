@@ -31,6 +31,7 @@ class ReferenceDataSeeder extends Seeder
             }
 
             $this->call(AuthorizationSeeder::class);
+            $this->call(PatientCategorySeeder::class);
         });
     }
 }
