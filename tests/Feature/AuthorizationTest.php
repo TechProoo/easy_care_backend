@@ -52,7 +52,7 @@ class AuthorizationTest extends TestCase
         $other = $this->staff('doctor');
         $this->actingAs($viewer)->getJson('/api/v1/staff')->assertOk()->assertJsonPath('meta.total', 2);
         $this->getJson('/api/v1/staff/'.$other->id)->assertOk()->assertJsonPath('data.id', $other->id);
-        $this->getJson('/api/v1/access-control')->assertOk()->assertJsonCount(7, 'data.permissions')
+        $this->getJson('/api/v1/access-control')->assertOk()->assertJsonCount(8, 'data.permissions')
             ->assertJsonCount(7, 'data.roles')->assertJsonMissingPath('data.users');
 
         $viewer->roles()->sole()->permissions()->detach(

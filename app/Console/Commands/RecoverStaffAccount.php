@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\User;
 use App\Services\StaffAdministration;
+use App\Services\AuditTrail;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
@@ -12,9 +13,10 @@ use Illuminate\Console\Command;
 #[Description('Issue a one-use recovery code from the trusted hospital server console')]
 class RecoverStaffAccount extends Command
 {
-    public function handle(StaffAdministration $staff): int
+    public function handle(StaffAdministration $staff, AuditTrail $audit): int
     {
         if (! $this->input->isInteractive()) {
+            $audit->record('staff.recovery_issued', null, 'staff', outcome: 'denied', channel: 'console');
             $this->error('Run this command interactively after verifying the staff member identity.');
 
             return self::FAILURE;
@@ -22,12 +24,14 @@ class RecoverStaffAccount extends Command
 
         $target = User::query()->where('username', mb_strtolower(trim($this->argument('username'))))->first();
         if ($target === null || ! $target->is_active) {
+            $audit->record('staff.recovery_issued', null, 'staff', outcome: 'denied', channel: 'console');
             $this->error('An active staff account with that username was not found.');
 
             return self::FAILURE;
         }
 
         if (! $this->confirm('Have you verified this staff member identity using the hospital recovery procedure?')) {
+            $audit->record('staff.recovery_issued', null, 'staff', $target->id, outcome: 'denied', channel: 'console');
             $this->info('Recovery cancelled.');
 
             return self::FAILURE;

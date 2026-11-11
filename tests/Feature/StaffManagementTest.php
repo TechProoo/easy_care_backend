@@ -51,7 +51,7 @@ class StaffManagementTest extends TestCase
         $created = User::findOrFail($response->json('data.id'));
         $this->assertSame('new.doctor@example.test', $created->email);
         $this->assertFalse(Hash::check('Correct-secret-123!', $created->password));
-        $this->assertDatabaseCount('role_permissions', 18);
+        $this->assertDatabaseCount('role_permissions', 19);
     }
 
     public function test_creation_requires_reauthentication_valid_relationships_and_unique_identifiers(): void

@@ -14,6 +14,8 @@ use Illuminate\Validation\ValidationException;
 
 class StaffAdministration
 {
+    public function __construct(private AuditTrail $audit) {}
+
     /** @param array<string, mixed> $data */
     public function create(User $actor, array $data): User
     {
@@ -29,6 +31,12 @@ class StaffAdministration
             $user->password = Str::random(64);
             $user->save();
             $user->roles()->sync($roles);
+            $this->audit->record('staff.created', $actor->id, 'staff', $user->id, [
+                'role_codes' => $user->roles()->orderBy('code')->pluck('code')->all(),
+                'department_id' => $user->department_id,
+                'is_active' => $user->is_active,
+                'version' => $user->version,
+            ]);
 
             return $user;
         });
@@ -54,9 +62,16 @@ class StaffAdministration
                 throw ValidationException::withMessages(['role_codes' => ['Another administrator must change your access controls.']]);
             }
 
+            $previousRoles = $target->roles()->orderBy('code')->pluck('code')->all();
+            $previousDepartment = $target->department_id;
+            $previousActive = $target->is_active;
             $target->forceFill(collect($data)->only([
                 'first_name', 'last_name', 'middle_name', 'email', 'staff_code', 'department_id', 'is_active',
             ])->all());
+            $changedFields = array_keys($target->getDirty());
+            if ($oldRoles !== $roles) {
+                $changedFields[] = 'role_codes';
+            }
             if ($target->isDirty('email')) {
                 $target->email_verified_at = null;
             }
@@ -68,6 +83,18 @@ class StaffAdministration
             if ($accessChanged) {
                 DB::table('sessions')->where('user_id', $target->id)->delete();
             }
+
+            $this->audit->record('staff.updated', $actor->id, 'staff', $target->id, [
+                'changed_fields' => $changedFields,
+                'previous_role_codes' => $previousRoles,
+                'role_codes' => $target->roles()->orderBy('code')->pluck('code')->all(),
+                'previous_department_id' => $previousDepartment,
+                'department_id' => $target->department_id,
+                'previous_is_active' => $previousActive,
+                'is_active' => $target->is_active,
+                'version' => $target->version,
+                'sessions_revoked' => $accessChanged,
+            ]);
 
             return $target;
         });
@@ -120,6 +147,10 @@ class StaffAdministration
         $target->version++;
         $target->save();
 
+        $this->audit->record('staff.recovery_issued', $issuer, 'staff', $target->id, [
+            'version' => $target->version,
+        ], channel: $issuer === null ? 'console' : 'http');
+
         return ['user' => $target, 'token' => $token, 'expires_at' => $expires->toISOString()];
     }
 
@@ -146,6 +177,9 @@ class StaffAdministration
             if ($user->email !== null) {
                 DB::table('password_reset_tokens')->where('email', $user->email)->delete();
             }
+            $this->audit->record('staff.password_reset', null, 'staff', $user->id, [
+                'version' => $user->version,
+            ]);
         });
     }
 

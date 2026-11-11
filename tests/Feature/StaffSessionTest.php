@@ -106,6 +106,7 @@ class StaffSessionTest extends TestCase
         $this->send('POST', '/api/v1/auth/login', [
             'email_or_username' => 'clinician', 'password' => 'Correct-secret-123!',
         ], ['X-CSRF-TOKEN' => 'incorrect'])->assertStatus(419)->assertJsonPath('code', 'session_expired');
+        $this->assertDatabaseHas('audit_events', ['action' => 'auth.login', 'outcome' => 'denied', 'http_status' => 419]);
         $this->send('GET', '/api/v1/auth/me')->assertUnauthorized();
     }
 

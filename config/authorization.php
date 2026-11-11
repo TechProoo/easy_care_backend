@@ -3,8 +3,10 @@
 return [
     'baseline' => 'staff-access-v1',
     'management_baseline' => 'staff-administration-v1',
+    'audit_baseline' => 'audit-history-v1',
     'reset_minutes' => 15,
     'permissions' => [
+        'audit.view' => 'Review staff and security audit history',
         'reference-data.view' => 'View reference data',
         'staff.view_self' => 'View own staff directory entry',
         'staff.view_department' => 'View staff in own department',
@@ -21,6 +23,9 @@ return [
         'pharmacy' => ['reference-data.view', 'staff.view_self'],
         'hmo' => ['reference-data.view', 'staff.view_self'],
         'diagnostics-and-radiologist' => ['reference-data.view', 'staff.view_self'],
+    ],
+    'audit_role_defaults' => [
+        'admin' => ['audit.view'],
     ],
     'management_role_defaults' => [
         'admin' => ['staff.manage', 'staff.reset_password'],

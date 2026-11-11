@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\V1\AccessControlController;
+use App\Http\Controllers\Api\V1\AuditHistoryController;
 use App\Http\Controllers\Api\V1\DepartmentController;
 use App\Http\Controllers\Api\V1\HealthController;
 use App\Http\Controllers\Api\V1\StaffDirectoryController;
@@ -24,6 +25,8 @@ Route::prefix('v1')->name('api.v1.')->group(function (): void {
             ->middleware('throttle:staff-recovery')->name('auth.password.reset');
 
         Route::middleware(['auth:web', EnsureStaffIsActive::class, 'auth.session'])->group(function (): void {
+            Route::get('audit-events', AuditHistoryController::class)
+                ->middleware('can:audit.view')->name('audit-events.index');
             Route::get('auth/me', [StaffSessionController::class, 'show'])->name('auth.me');
             Route::post('auth/logout', [StaffSessionController::class, 'destroy'])->name('auth.logout');
             Route::get('departments', [DepartmentController::class, 'index'])

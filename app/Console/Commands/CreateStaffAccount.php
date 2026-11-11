@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Http\Requests\StaffPasswordRules;
 use App\Models\Role;
 use App\Models\User;
+use App\Services\AuditTrail;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
@@ -20,9 +21,10 @@ class CreateStaffAccount extends Command
     /**
      * Execute the console command.
      */
-    public function handle(): int
+    public function handle(AuditTrail $audit): int
     {
         if (! $this->input->isInteractive()) {
+            $audit->record('staff.created', null, 'staff', outcome: 'denied', channel: 'console');
             $this->error('Run this command interactively so the password can be entered privately.');
 
             return self::FAILURE;
@@ -54,6 +56,7 @@ class CreateStaffAccount extends Command
         ]);
 
         if ($validator->fails()) {
+            $audit->record('staff.created', null, 'staff', outcome: 'denied', channel: 'console');
             foreach ($validator->errors()->all() as $message) {
                 $this->error($message);
             }
@@ -61,7 +64,7 @@ class CreateStaffAccount extends Command
             return self::FAILURE;
         }
 
-        DB::transaction(function () use ($attributes, $role): void {
+        DB::transaction(function () use ($attributes, $role, $audit): void {
             $user = User::query()->create(collect($attributes)->only([
                 'username', 'first_name', 'last_name', 'email', 'password',
             ])->all());
@@ -69,6 +72,12 @@ class CreateStaffAccount extends Command
             if ($role) {
                 $user->roles()->attach(Role::query()->where('code', $role)->firstOrFail());
             }
+            $user->refresh();
+            $audit->record('staff.created', null, 'staff', $user->id, [
+                'role_codes' => $user->roles()->orderBy('code')->pluck('code')->all(),
+                'is_active' => $user->is_active,
+                'version' => $user->version,
+            ], channel: 'console');
         });
 
         $this->info('Staff account created. No additional permissions were granted.');
