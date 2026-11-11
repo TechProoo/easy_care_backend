@@ -1,6 +1,6 @@
 # EasyCare backend
 
-Laravel PHP backend for the EasyCare React application. The database/API foundation includes staff organization and role relationships, versioned endpoints, validation and isolated database tests. Staff login and patient workflows are the next implementation stages.
+Laravel PHP backend for the EasyCare React application. The database/API foundation and staff session login are implemented. Patient workflows and the full hospital permissions matrix are later stages.
 
 ## Local Windows setup
 
@@ -42,10 +42,23 @@ For a foreground server, run `stop` and then `.\dev.cmd serve`. Press Ctrl+C to 
 - Laravel starter migrations: users/password resets/sessions, cache/locks and jobs/failed jobs.
 - Staff foundation migrations: departments, staff identity fields, roles, permissions and their assignment tables.
 - Versioned API readiness endpoint: `GET /api/v1/health`.
-- Protected department list: `GET /api/v1/departments`, with validation, filtering, sorting and pagination. Login endpoints are not implemented yet.
+- Staff session endpoints: CSRF bootstrap, login, current staff identity and logout under `/api/v1/auth`.
+- Protected department list: `GET /api/v1/departments`, with validation, filtering, sorting and pagination.
 - Private `backend/.env` is configured with the generated local database password and application key.
 
 `vendor/` contains installed PHP packages. `composer.lock` records their exact versions. `.env` and the project-local tools/database files are excluded from Git.
+
+## First staff account and sign-in
+
+From `backend`, create an account through private interactive prompts:
+
+```powershell
+.\dev.cmd artisan staff:create --role=admin
+```
+
+Use your own username and password; no demonstration accounts or default passwords are created. The password is entered privately and is not a command-line argument. The chosen role must already exist in the seeded catalog. Omitting `--role` creates an account with no module access; additional permissions are assigned in the later staff-administration stage.
+
+Start the backend with `dev.cmd start`, then run `npm run dev` in the existing frontend directory and open its printed URL. The frontend uses `/api/v1` through Vite's local proxy to port 8000. It no longer sends sign-in to the previous cloud backend. Staff without assigned roles see an access-pending page. Staff administration and password recovery are not implemented yet.
 
 ## Where code goes
 

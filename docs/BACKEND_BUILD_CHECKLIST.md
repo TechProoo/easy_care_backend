@@ -1,6 +1,6 @@
 # EasyCare backend build checklist
 
-Updated 10 November 2026. Follow the stages in order. Tick a task only when its stated result is demonstrated. This is an implementation checklist, not a record of completed hospital features.
+Updated 11 November 2026. Follow the stages in order. Tick a task only when its stated result is demonstrated. This is an implementation checklist, not a record of completed hospital features.
 
 ## Already completed
 
@@ -40,12 +40,14 @@ Completed 10 November 2026: additive staff migrations are applied to `easycare_d
 
 ## Stage 3: Build staff accounts and authorization
 
-- [ ] **9. Implement staff login, logout and session handling.** Use secure password hashing, browser session protection, login throttling and account activation checks. Test that logout ends access and disabled staff cannot sign in.
+- [x] **9. Implement staff login, logout and session handling.** Use secure password hashing, browser session protection, login throttling and account activation checks. Test that logout ends access and disabled staff cannot sign in.
 - [ ] **10. Implement server-side authorization.** Enforce role permissions and record scope on every protected endpoint. A hidden frontend button must not be the only restriction.
 - [ ] **11. Implement staff administration and account recovery.** Support authorized staff creation, department/role assignment, profile changes, deactivation and a hospital-approved password reset process that works with the local deployment.
 - [ ] **12. Connect the frontend to one real identity system.** Replace mock login and competing auth stores; protect module routes, restore sessions safely and clear user-specific cached data when accounts change.
 
 Stage complete when each role can sign in, use only permitted operations and sign out through the real frontend.
+
+Task 9 completed 11 November 2026: session login, CSRF bootstrap, current-user lookup and logout are implemented and connected to the frontend. Sessions rotate on login and are invalidated on logout; expired sessions, inactive accounts and changed passwords lose access. Login is throttled and no bearer token or browser-stored identity is trusted. All 67 backend tests passed on MySQL; eight browser checks passed, and the frontend builds. A private interactive `staff:create` console command supports first-account setup without a default password. Tasks 11 and 12 are partially addressed by this setup and sign-in integration; the full permissions matrix, administration/recovery UI and clinical cache isolation remain unfinished. Existing patient and clinical screens still contain demonstration data.
 
 ## Stage 4: Add shared record safeguards
 
@@ -148,7 +150,7 @@ Stage complete when the hospital has accepted the working release and can operat
 
 ## Current next task
 
-**Task 9: implement staff login, logout and session handling.** Stage 2 was selected for implementation and is complete. Stage 1 hospital decisions remain unchecked and must be confirmed before their dependent workflows are finalized. Next, implement staff access in Stage 3, then progress toward patient registration. No unfinished task above is marked complete merely because its table exists in the proposal.
+**Task 10: implement server-side authorization for the agreed permissions matrix.** Database/API foundations and staff session handling are complete. Continue Stage 3 with permission policies, staff administration and recovery before patient registration. Stage 1 hospital decisions remain unchecked and must be confirmed before their dependent workflows are finalized. No unfinished task above is marked complete merely because its table exists in the proposal.
 
 ## Reference documents
 

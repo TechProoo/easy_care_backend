@@ -51,7 +51,7 @@ class ApiFoundationTest extends TestCase
         $user = $this->authorizedStaff();
         $user->is_active = false;
         $user->save();
-        $this->actingAs($user)->getJson('/api/v1/departments')->assertForbidden();
+        $this->actingAs($user)->getJson('/api/v1/departments')->assertUnauthorized();
     }
 
     public function test_departments_have_paginated_filtered_sorted_resources(): void

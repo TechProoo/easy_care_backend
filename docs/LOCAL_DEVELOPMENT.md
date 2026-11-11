@@ -60,7 +60,7 @@ The local database is named `easycare_dev`, with an application account restrict
 - `backend/tests/`: automated checks.
 - `backend/.env`: private laptop settings, including the database connection.
 
-The application migrations now add the staff/role foundation to Laravel's runtime tables. Patient and clinical workflows and staff login are later stages. The complete architecture SQL remains a proposal; it is not imported into the development database.
+The application migrations now add the staff/role foundation to Laravel's runtime tables. Staff login uses the existing session table; patient and clinical workflows are later stages. The complete architecture SQL remains a proposal; it is not imported into the development database.
 
 ## Database and API foundation
 
@@ -114,6 +114,10 @@ Implemented routes:
 | Method and path | Access | Response |
 |---|---|---|
 | `GET /api/v1/health` | Public | `data.application`, `data.api_version`, `data.status`; `503` if MySQL cannot be queried. No database connection details are returned. |
+| `GET /api/v1/auth/csrf-token` | Public, session-backed | `data.csrf_token`; starts an anonymous browser session. |
+| `POST /api/v1/auth/login` | CSRF protected | Accepts `email_or_username` and `password`; returns `data.user`, `data.csrf_token`, `data.expires_at`. |
+| `GET /api/v1/auth/me` | Active signed-in staff | Current identity, CSRF token and expiry; `401` for invalid sessions. |
+| `POST /api/v1/auth/logout` | Active signed-in staff, CSRF protected | `204`, invalidates the current server session. |
 | `GET /api/v1/departments` | Active signed-in staff with `reference-data.view` | Paginated department resources: `id`, `code`, `name`, `created_at`, `updated_at`. |
 
 The existing `/` response and framework `/up` route remain available. `/up` checks application liveness; the versioned health route also checks database readiness.
@@ -162,18 +166,37 @@ Foundation verification on 10 November 2026: all 51 PHPUnit tests passed on MySQ
 
 ## Frontend connection and authentication boundary
 
-The existing frontend API client defaults to `http://127.0.0.1:8000/api/v1`, matching this API prefix. `FRONTEND_URLS` is an explicit comma-separated origin allowlist; the development defaults are `http://localhost:5173` and `http://127.0.0.1:5173`. CORS supports credentials and preflight requests, including error responses. CORS is browser configuration, not authorization.
+The frontend API client and tracked development configuration use `/api/v1`. Vite proxies this path to `http://127.0.0.1:8000`, so cookies stay on the frontend's hostname. The previous cloud API URL has been removed. Production hosting must route this same prefix to Laravel. `FRONTEND_URLS` remains an explicit origin allowlist for deliberately separate origins; development defaults are `http://localhost:5173` and `http://127.0.0.1:5173`. CORS supports credentialed requests, CSRF headers and preflight. CORS is browser configuration, not authorization.
 
 For example, the frontend can check the public endpoint with:
 
 ```javascript
-const response = await fetch('http://127.0.0.1:8000/api/v1/health', {
+const response = await fetch('/api/v1/health', {
   headers: { Accept: 'application/json' },
 });
 const result = await response.json();
 ```
 
-Protected department routes use Laravel's `web` session middleware plus `auth:web` and the permission gate. Real staff login/logout/CSRF bootstrap routes are not implemented yet, so normal clients receive `401`. Authorization behavior is verified with authenticated test fixtures. This foundation does not accept the frontend's current demonstration bearer token. The staff-auth stage must replace mock authentication, enable credentialed requests, establish CSRF handling and use a consistent hostname for session cookies. No public signup or self-selected role grants are introduced here.
+Session routes use Laravel's `web` middleware and the database session driver. The browser sends cookies with `credentials: include`. Before login or logout it retrieves the CSRF token and sends `X-CSRF-TOKEN`; Laravel's request-forgery middleware also accepts valid same-origin browser requests. Login rotates both session ID and CSRF token and destroys the old session. Identity cookies are HTTP-only, SameSite=Lax by default, and secure under the production template's HTTPS configuration. No bearer token is returned or required.
+
+Unknown accounts, wrong passwords and inactive accounts receive the same `422` validation error. Laravel verifies the password hash. Login permits five failed attempts per normalized identifier/IP pair per minute, plus twenty login requests per IP per minute; `429` preserves `Retry-After`. Identity-specific limiter keys are hashed. Successful login clears its failure counter and records `last_login_at`. Login while already signed in returns `409`; logout is required before changing accounts. Extra input fields cannot assign roles or activate accounts.
+
+`data.user` includes staff ID, username, names, email, active status, department, assigned roles and effective permission codes. Passwords and remember tokens are omitted. `data.expires_at` is the current estimated session expiry in UTC. Protected routes check the active account and session password fingerprint. Disabling an account or changing its password prevents subsequent authenticated access. Logout invalidates the current session and regenerates CSRF state. Auth responses and API errors use `Cache-Control: no-store, private`.
+
+The frontend uses one in-memory identity store shared by the global auth context and clinician components. It restores identity from `/auth/me` after reload, and blocks private routes while identity is unknown or the server is unreachable. Module guards use server-returned roles; UI checks do not replace backend policies. Legacy browser-stored auth/profile placeholders are removed. Logout waits for a server response before clearing identity and reloading sign-in, discarding in-memory component state. Failed logout can be retried. Active users are rechecked periodically; idle pages do not send an endless heartbeat that keeps sessions alive. Expiry is checked against the server. Only login/logout may refresh CSRF and retry once after `419`; clinical mutations are never automatically replayed.
+
+No public registration or OTP activation endpoint exists. Account requests and recovery requests are directed to the hospital administrator until those workflows are built. Patient and clinical screens still contain demonstration data; signing in does not make them operational or production-ready. The complete permissions matrix, administration/recovery UI and clinical cache isolation remain on the checklist.
+
+Create the first staff account from the server console:
+
+```powershell
+.\dev.cmd artisan db:seed
+.\dev.cmd artisan staff:create --role=admin
+```
+
+The command privately prompts for username, names, optional email and a confirmed password. Usernames use lowercase letters, digits, dots, underscores or hyphens. Passwords require at least 12 characters, mixed case and a number, within bcrypt's 72-byte limit. Duplicate identifiers and unknown roles are rejected; creation and role assignment use a transaction. The role flag is optional and never defaults to administrator. Selecting a role does not add permission grants. Non-interactive execution is refused, keeping passwords out of command history and arguments. No staff account is automatically provisioned.
+
+Verification on 11 November 2026: all 67 backend tests passed on MySQL (244 assertions); SQLite passed 66 tests (243 assertions), with one MySQL-only check skipped. Session tests use database-backed cookies and enable real CSRF verification instead of its usual test bypass. Eight browser checks passed: forged local identity, invalid credentials, login, refresh, role denial, connection failure/retry, logout and unassigned-role handling. No JavaScript page errors occurred. The frontend builds; its full TypeScript check still reports 126 errors outside the changed authentication files, so it is not a clean release check yet.
 
 ## Local files and logs
 

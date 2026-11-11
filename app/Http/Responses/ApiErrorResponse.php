@@ -42,6 +42,7 @@ class ApiErrorResponse
 
         $headers = $response->headers->all();
         unset($headers['content-type'], $headers['content-length']);
+        $headers['Cache-Control'] = 'no-store, private';
 
         return new JsonResponse($payload, $status, $headers);
     }
