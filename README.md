@@ -1,6 +1,6 @@
 # EasyCare backend
 
-Laravel PHP backend for the EasyCare React application. Database/API foundations, staff sessions, patient registration and record-management APIs are implemented. Patient screen integration and hospital acceptance remain later stages.
+Laravel PHP backend for the EasyCare React application. Database/API foundations, staff sessions, patient registration and record-management APIs are implemented. The frontend saved-patient workspace is connected; hospital acceptance and later clinical workflows remain open.
 
 ## Local Windows setup
 
