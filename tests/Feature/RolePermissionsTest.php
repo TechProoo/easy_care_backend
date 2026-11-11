@@ -79,7 +79,7 @@ class RolePermissionsTest extends TestCase
         $this->assertSame('Approved directory access', $permission->fresh()->name);
         $this->assertDatabaseCount('role_permissions', 21);
         $this->assertDatabaseCount('permission_baselines', 4);
-        $this->assertDatabaseCount('permissions', 13);
+        $this->assertDatabaseCount('permissions', 19);
     }
 
     public function test_unknown_roles_permissions_and_incomplete_revocations_fail_without_changes(): void

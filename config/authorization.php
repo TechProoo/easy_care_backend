@@ -7,6 +7,12 @@ return [
     'files_baseline' => 'protected-files-v1',
     'reset_minutes' => 15,
     'permissions' => [
+        'patients.flags.view' => 'Review patient flags',
+        'patients.flags.manage' => 'Create and resolve patient flags',
+        'patients.cards.manage' => 'Change patient cards and review category history',
+        'patients.access.manage' => 'Restrict and restore patient access by known ID',
+        'patients.merges.request' => 'Request or cancel a duplicate patient merge',
+        'patients.merges.approve' => 'Independently approve or reject a duplicate patient merge',
         'patients.view' => 'View active patient records and search the registry',
         'patients.create' => 'Register patients after reviewing possible duplicates',
         'patients.update' => 'Edit active patient demographics and contacts',

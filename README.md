@@ -1,6 +1,6 @@
 # EasyCare backend
 
-Laravel PHP backend for the EasyCare React application. Database/API foundations, staff sessions and authorization for the current APIs are implemented. Patient workflows and their hospital-approved access rules are later stages.
+Laravel PHP backend for the EasyCare React application. Database/API foundations, staff sessions, patient registration and record-management APIs are implemented. Patient screen integration and hospital acceptance remain later stages.
 
 ## Local Windows setup
 
@@ -53,6 +53,7 @@ For a foreground server, run `stop` and then `.\dev.cmd serve`. Press Ctrl+C to 
 - Owner-scoped private uploads/downloads, file metadata and checksum verification; `/admin/files` provides the staff library.
 - A read-only `files:verify` console command checks the private file/database recovery set.
 - Patient demographic/category/identifier/contact/family-link storage, with permanent number reservations and opt-in registration, search, duplicate-review and versioned editing APIs.
+- Private flags, governed restriction/restore, card/category history and two-person patient merges, with stable original records and canonical lookup.
 - Private `backend/.env` is configured with the generated local database password and application key.
 
 `vendor/` contains installed PHP packages. `composer.lock` records their exact versions. `.env` and the project-local tools/database files are excluded from Git.

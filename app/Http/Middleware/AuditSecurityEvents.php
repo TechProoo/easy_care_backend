@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use App\Models\User;
 use App\Services\AuditTrail;
+use App\Services\PatientRecordManagement;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -34,7 +35,11 @@ class AuditSecurityEvents
             'api.v1.patients.index' => 'patient.listed',
             'api.v1.patients.show' => 'patient.viewed',
             'api.v1.patients.duplicates' => 'patient.duplicates_checked',
-            default => null,
+            'api.v1.patients.records.flags.index' => 'patient.flags_viewed',
+            'api.v1.patients.records.cards.index' => 'patient.card_history_viewed',
+            'api.v1.patients.records.access.show' => 'patient.access_state_viewed',
+            'api.v1.patients.records.merges.index' => 'patient.merge_requests_viewed',
+            default => PatientRecordManagement::ACTIONS[str_replace('api.v1.patients.records.', '', $request->route()?->getName() ?? '')][1] ?? null,
         };
 
         if ($action !== null && $status >= 400) {

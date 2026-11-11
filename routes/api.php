@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\V1\AuditHistoryController;
 use App\Http\Controllers\Api\V1\DepartmentController;
 use App\Http\Controllers\Api\V1\HealthController;
 use App\Http\Controllers\Api\V1\PatientController;
+use App\Http\Controllers\Api\V1\PatientRecordController;
 use App\Http\Controllers\Api\V1\ProtectedFileController;
 use App\Http\Controllers\Api\V1\StaffDirectoryController;
 use App\Http\Controllers\Api\V1\StaffManagementController;
@@ -13,6 +14,7 @@ use App\Http\Controllers\Api\V1\StaffSessionController;
 use App\Http\Middleware\EnsureStaffIsActive;
 use App\Http\Middleware\PreventAuthResponseCaching;
 use App\Models\Department;
+use App\Models\Patient;
 use App\Models\User;
 use Illuminate\Support\Facades\Route;
 
@@ -28,6 +30,24 @@ Route::prefix('v1')->name('api.v1.')->group(function (): void {
 
         Route::middleware(['auth:web', EnsureStaffIsActive::class, 'auth.session'])->group(function (): void {
             Route::middleware('can:patients.view')->group(function (): void {
+                Route::prefix('patients/{patient}')->where(['patient' => '[1-9][0-9]{0,17}', 'flag' => '[1-9][0-9]{0,17}', 'mergeRequest' => '[1-9][0-9]{0,17}'])
+                    ->name('patients.records.')->group(function (): void {
+                        Route::get('flags', [PatientRecordController::class, 'flags'])->middleware('can:patients.flags.view')->name('flags.index');
+                        Route::get('card-history', [PatientRecordController::class, 'cards'])->middleware('can:patients.cards.manage')->name('cards.index');
+                        Route::get('access-state', [PatientRecordController::class, 'access'])->middleware('can:patients.access.manage')->name('access.show');
+                        Route::get('merge-requests', [PatientRecordController::class, 'merges'])->can('reviewMerges', Patient::class)->name('merges.index');
+                        Route::middleware('throttle:patient-writes')->group(function (): void {
+                            Route::post('flags', [PatientRecordController::class, 'write'])->middleware(['can:patients.flags.view', 'can:patients.flags.manage'])->name('flags.store');
+                            Route::post('flags/{flag}/resolve', [PatientRecordController::class, 'write'])->middleware(['can:patients.flags.view', 'can:patients.flags.manage'])->name('flags.resolve');
+                            Route::post('access/restrict', [PatientRecordController::class, 'write'])->middleware('can:patients.access.manage')->name('access.restrict');
+                            Route::post('access/restore', [PatientRecordController::class, 'write'])->middleware('can:patients.access.manage')->name('access.restore');
+                            Route::post('card', [PatientRecordController::class, 'write'])->middleware('can:patients.cards.manage')->name('cards.change');
+                            Route::post('merge-requests', [PatientRecordController::class, 'write'])->middleware('can:patients.merges.request')->name('merges.request');
+                            Route::post('merge-requests/{mergeRequest}/approve', [PatientRecordController::class, 'write'])->middleware('can:patients.merges.approve')->name('merges.approve');
+                            Route::post('merge-requests/{mergeRequest}/reject', [PatientRecordController::class, 'write'])->middleware('can:patients.merges.approve')->name('merges.reject');
+                            Route::post('merge-requests/{mergeRequest}/cancel', [PatientRecordController::class, 'write'])->middleware('can:patients.merges.request')->name('merges.cancel');
+                        });
+                    });
                 Route::get('patients/options', [PatientController::class, 'options'])->name('patients.options');
                 Route::post('patients/duplicate-check', [PatientController::class, 'duplicates'])->name('patients.duplicates');
                 Route::get('patients', [PatientController::class, 'index'])->name('patients.index');

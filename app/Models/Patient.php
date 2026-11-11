@@ -56,6 +56,26 @@ class Patient extends Model
         return $this->hasMany(PatientContact::class)->orderBy('priority');
     }
 
+    public function flags(): HasMany
+    {
+        return $this->hasMany(PatientFlag::class);
+    }
+
+    public function categoryHistory(): HasMany
+    {
+        return $this->hasMany(PatientCategoryHistory::class);
+    }
+
+    public function accessEvents(): HasMany
+    {
+        return $this->hasMany(PatientAccessEvent::class);
+    }
+
+    public function mergeRequests(): HasMany
+    {
+        return $this->hasMany(PatientMergeRequest::class, 'source_patient_id');
+    }
+
     public function relationships(): HasMany
     {
         return $this->hasMany(PatientRelationship::class);

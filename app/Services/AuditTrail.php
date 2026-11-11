@@ -14,6 +14,9 @@ class AuditTrail
         'auth.login', 'auth.logout', 'audit.viewed', 'command.replayed',
         'file.uploaded', 'file.listed', 'file.viewed', 'file.download_authorized', 'file.integrity_checked',
         'patient.created', 'patient.updated', 'patient.listed', 'patient.viewed', 'patient.duplicates_checked',
+        'patient.flagged', 'patient.flag_resolved', 'patient.flags_viewed', 'patient.card_changed', 'patient.card_history_viewed',
+        'patient.access_restricted', 'patient.access_restored', 'patient.access_state_viewed',
+        'patient.merge_requested', 'patient.merge_approved', 'patient.merge_rejected', 'patient.merge_cancelled', 'patient.merge_requests_viewed',
     ];
 
     /** @param array<string, mixed> $summary */
@@ -69,13 +72,15 @@ class AuditTrail
             'file.integrity_checked' => ['checked', 'missing', 'corrupt', 'orphaned'],
             'patient.created' => ['version', 'category_id', 'contact_count', 'duplicates_acknowledged'],
             'patient.updated' => ['version', 'changed_fields', 'contacts_changed'],
+            'patient.flagged', 'patient.flag_resolved', 'patient.card_changed', 'patient.access_restricted', 'patient.access_restored',
+            'patient.merge_requested', 'patient.merge_approved', 'patient.merge_rejected', 'patient.merge_cancelled' => ['version', 'record_id'],
             default => [],
         };
 
         foreach ($summary as $key => $value) {
             $valid = in_array($key, $allowed, true) && match ($key) {
                 'department_id', 'previous_department_id' => $value === null || (is_int($value) && $value > 0),
-                'category_id' => is_int($value) && $value > 0,
+                'category_id', 'record_id' => is_int($value) && $value > 0,
                 'byte_size', 'checked', 'missing', 'corrupt', 'orphaned', 'contact_count' => is_int($value) && $value >= 0,
                 'mime_type' => in_array($value, ['application/pdf', 'image/jpeg', 'image/png'], true),
                 'version' => is_int($value) && $value > 0,

@@ -11,20 +11,24 @@ use App\Http\Resources\PatientResource;
 use App\Http\Resources\PatientSummaryResource;
 use App\Models\Patient;
 use App\Models\PatientCategory;
+use App\Models\PatientIdentifier;
 use App\Services\AuditTrail;
 use App\Services\IdempotentCommands;
 use App\Services\PatientRegistry;
+use App\Services\PatientIdentityResolver;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 class PatientController extends Controller
 {
-    public function index(ListPatientsRequest $request, AuditTrail $audit): AnonymousResourceCollection
+    public function index(ListPatientsRequest $request, AuditTrail $audit, PatientIdentityResolver $identities): AnonymousResourceCollection
     {
         $query = Patient::query()->visibleTo($request->user('web'))->with('category');
         $search = trim($request->validated('q', '') ?? '');
@@ -39,7 +43,20 @@ class PatientController extends Controller
             });
         }
         if ($request->filled('mrn')) {
-            $query->whereHas('identifiers', fn (Builder $query): Builder => $query->where('identifier', $request->validated('mrn')));
+            $identifier = PatientIdentifier::where('identifier', $request->validated('mrn'))->first();
+            $canonicalId = null;
+            if ($identifier !== null) {
+                try {
+                    $canonicalId = $identities->resolve($request->user('web'), $identifier->patient_id)->id;
+                } catch (ModelNotFoundException) {
+                    $canonicalId = null;
+                } catch (HttpException $exception) {
+                    if ($exception->getStatusCode() !== 404) {
+                        throw $exception;
+                    }
+                }
+            }
+            $query->whereKey($canonicalId ?? 0);
         }
         foreach (['category_id', 'date_of_birth'] as $field) {
             if ($request->filled($field)) {
@@ -64,12 +81,12 @@ class PatientController extends Controller
         return response()->json(['data' => ['categories' => PatientCategory::query()->orderBy('name')->get(['id', 'code', 'name'])]]);
     }
 
-    public function show(Request $request, int $patient, AuditTrail $audit): PatientResource
+    public function show(Request $request, int $patient, AuditTrail $audit, PatientIdentityResolver $identities): PatientResource
     {
-        $record = Patient::query()->visibleTo($request->user('web'))->with(['category', 'contacts', 'identifiers'])->findOrFail($patient);
+        $record = $identities->resolve($request->user('web'), $patient)->load(['category', 'contacts', 'identifiers']);
         $audit->record('patient.viewed', $request->user('web')->id, 'patient', $record->id);
 
-        return new PatientResource($record);
+        return (new PatientResource($record))->additional(['meta' => ['requested_id' => $patient, 'canonical_id' => $record->id]]);
     }
 
     public function duplicates(CheckPatientDuplicatesRequest $request, PatientRegistry $registry, AuditTrail $audit): JsonResponse

@@ -575,6 +575,8 @@ Task 17 verification on 11 November 2026: `dev.cmd composer verify` passed all 2
 
 Task 18 uses the decisions confirmed for this implementation: staff enter hospital/card numbers, and patient access is opt-in. The provisional scope permits only active records; restricted and merged patients remain hidden. Final hospital access, emergency override and numbering/allocation policies remain Stage 1/dependent-work decisions. There is no automatic number generator, admin bypass, restriction override or merge endpoint in this API.
 
+Task 19 extends this initial scope through the explicit record-management contract below: restricted details remain hidden; approved merged IDs/numbers may resolve to an active surviving identity. Ordinary edits never redirect to another patient.
+
 Run migrations and `db:seed` to install the birth-date lookup index and add the three known permission codes. No role receives them automatically. After approval for a role, an authorized operator can grant each permission through the existing trusted console command, for example:
 
 ```powershell
@@ -632,4 +634,64 @@ Audit actions are `patient.created`, `patient.updated`, `patient.listed`, `patie
 
 The automated contract is in `PatientApiTest` and the real parallel MySQL cases in `PatientConcurrencyTest`. `composer verify` runs the complete SQLite/MySQL regression gate. The MySQL script disables Composer's generic five-minute subprocess timeout because schema rebuild/concurrency suites can exceed it; individual parallel workers retain a twenty-second timeout. Run `npm test` and `npm run build` after audit-viewer changes. Patient registration/profile screens still use their existing demonstrations until Task 20; do not treat them as the operational frontend for these APIs. Hospital acceptance, clinical access decisions, card changes, restrictions and merges remain open dependent work.
 
-Task 18 verification on 11 November 2026: the combined gate passed all 331 MySQL tests (2,547 assertions). SQLite passed 324 tests (2,497 assertions), with seven MySQL-only skips. The 56 patient API cases cover scoped authorization, date/contact/input validation, hidden-record behavior, candidate acknowledgements, rollback at domain/audit/completion boundaries, version conflicts, replay scope/expiry/actor/target and sanitized database reporting. Three real parallel MySQL cases verify one-patient confirmation, duplicate review after a competing registration and stale-edit rejection. Twenty-six frontend tests passed; strict TypeScript and the production build passed. Fourteen browser checks passed with no page errors using real sessions: guest denial, origin/token protection, persistent registration/lookup, invalid saves, partial/stale edits, duplicate review, hidden records, one-patient lost-response confirmation, read-only denial, patient audit filtering/privacy, mobile layout and sign-out. Desktop/mobile audit captures were inspected. Laravel 13 permits verified same-origin browser metadata or a valid CSRF token; the rejection check explicitly used untrusted origin metadata without a token, while normal clients continue sending tokens. The new index and permission catalog are applied locally: thirteen known permissions, twenty-one existing grants, zero patient-access grants, seven categories and zero development patients/staff/files/commands. Browser records belong only to the disposable test schema; its cleanup does not delete number reservations from the development or hospital database.
+Task 18 verification on 11 November 2026: the combined gate passed all 331 MySQL tests (2,547 assertions). SQLite passed 324 tests (2,497 assertions), with seven MySQL-only skips. The 56 patient API cases cover scoped authorization, date/contact/input validation, hidden-record behavior, candidate acknowledgements, rollback at domain/audit/completion boundaries, version conflicts, replay scope/expiry/actor/target and sanitized database reporting. Three real parallel MySQL cases verify one-patient confirmation, duplicate review after a competing registration and stale-edit rejection. Twenty-six frontend tests passed; strict TypeScript and the production build passed. Fourteen browser checks passed with no page errors using real sessions: guest denial, origin/token protection, persistent registration/lookup, invalid saves, partial/stale edits, duplicate review, hidden records, one-patient lost-response confirmation, read-only denial, patient audit filtering/privacy, mobile layout and sign-out. Desktop/mobile audit captures were inspected. Laravel 13 permits verified same-origin browser metadata or a valid CSRF token; the rejection check explicitly used untrusted origin metadata without a token, while normal clients continue sending tokens. The new index and permission catalog were applied locally: thirteen known permissions, twenty-one existing grants, zero patient-access grants, seven categories and zero development patients/staff/files/commands. Browser records belong only to the disposable test schema; its cleanup does not delete number reservations from the development or hospital database.
+
+## Patient record management
+
+Task 19 implements the confirmed rules: merges require a requester and a different authorized reviewer; restriction and restore use a known patient ID, a mandatory reason and a separate opt-in permission. Restricted demographics remain hidden. Emergency access is not implemented. Staff still enter card numbers manually.
+
+All routes below are under `/api/v1/patients/{patient}` and require an active staff session and `patients.view`. Every write requires an `Idempotency-Key`, the current patient `version` and a trimmed `reason` of 5–2,000 characters. Card, access and merge writes also require `current_password`. No patient permission is automatically granted to a role, including administrators.
+
+| Method and suffix | Additional permission | Input or result |
+| --- | --- | --- |
+| GET `flags` | `patients.flags.view` | Paginated private flags and resolutions for an active patient |
+| POST `flags` | `patients.flags.view` and `patients.flags.manage` | `type`: lowercase code, at most 64 characters |
+| POST `flags/{flag}/resolve` | Both flag permissions | Resolve an owned, unresolved flag once |
+| GET `card-history` | `patients.cards.manage` | Paginated private category/number changes for an active patient |
+| POST `card` | `patients.cards.manage` | Required `category_id`; optional new `mrn` |
+| GET `access-state` | `patients.access.manage` | Only `{id, version, access_status}`, including known restricted IDs |
+| POST `access/restrict` | `patients.access.manage` | Active → restricted |
+| POST `access/restore` | `patients.access.manage` | Restricted → active |
+| GET `merge-requests` | `patients.merges.request` or `patients.merges.approve` | Paginated proposals for an active source; reasons omitted if the target is hidden |
+| POST `merge-requests` | `patients.merges.request` | `target_patient_id`, `target_version`; source and target must be distinct active roots |
+| POST `merge-requests/{mergeRequest}/approve` | `patients.merges.approve` | `request_version`; independent reviewer and unchanged snapshot versions |
+| POST `merge-requests/{mergeRequest}/reject` | `patients.merges.approve` | `request_version`; independent reviewer |
+| POST `merge-requests/{mergeRequest}/cancel` | `patients.merges.request` | `request_version`; original requester only |
+
+History reads use the standard `data`, `links`, `meta` pagination envelope; `page` starts at one and `per_page` is 1–100. Flags and card history return private reasons only under their specific permissions. General patient resources do not embed private management histories. Restricted reasons have no read endpoint. An authorized requester/reviewer may cancel/reject a known pending proposal after restriction without retrieving patient details; the response is a metadata receipt.
+
+Writes return `{data: {id, version, operation, record_id}}`: the source patient ID/current version, operation code and management-row ID. Flag creation and merge requests return `201`; other commands and successful confirmations return `200`. No demographics or reasons are echoed in receipts. Unknown fields are rejected. Missing permissions return `403`; hidden/unowned nested resources return `404`; stale versions and invalid transitions return `409`; invalid input/password returns `422`. The existing API envelope, no-store headers and thirty-writes-per-staff/IP/minute limit apply.
+
+### Storage and relationships
+
+The additive migration creates five tables and adds a nullable management outcome pointer to command receipts:
+
+| Table | Relationships and retained history |
+| --- | --- |
+| `patient_flags` | Patient, creator and optional resolver; original type/reason remain immutable after one resolution |
+| `patient_category_history` | Patient, previous/new category and changing staff member; stores previous/new number and reason |
+| `patient_access_events` | Patient and actor; append-only restrict/restore reason and occurrence time |
+| `patient_merge_requests` | Source/target patients, requester and reviewer; patient snapshot versions and one final review |
+| `patient_merges` | Unique approved request and source, surviving target and approving staff member; immutable committed identity link |
+
+Foreign keys prevent deleting referenced patients, categories or staff. Database triggers guard valid resolution/review state, prevent self-approval and protect immutable history, including direct SQL. A generated unique pending-source key prevents two pending proposals for one source. Existing number-reservation triggers continue to reserve every old/current MRN permanently. A category change may keep the current number; replacing a number requires a previously unused canonical number. No-op card changes fail. Numbers and categories cannot be changed through ordinary demographic editing.
+
+### Merge lifecycle and lookup
+
+A request records both versions and increments the source version. Approval must match the resulting source snapshot, the target snapshot and the proposal version. Any intervening edit, flag, access or card change makes approval stale; cancel/reject and request a fresh review. Approval increments both patient versions, marks the source `merged` and inserts a permanent source → target link. Reject/cancel increments the source version and closes the proposal. Reviewed requests cannot be reopened or deleted.
+
+Both original patient rows, contacts, identifiers, family links, flags and histories remain attached to their original IDs. Approval does not select or overwrite demographics, move family links or combine clinical records. Unresolved flags in the source identity history and family links connecting the two identity histories block approval for review. Resolve these concerns before requesting a new merge. Future clinical modules must explicitly account for retained original identities when assembling history.
+
+Authorized `GET /patients/{id}` returns the active survivor with `meta.requested_id` and `meta.canonical_id`. Exact `GET /patients?mrn=...` resolves current or retired source numbers to that survivor. Neither response includes original source demographics. Broad text search continues to search active roots only. Ordinary demographic and management writes do not follow aliases: use the returned canonical ID and its current version for new work. A merged source cannot be restored through the access endpoint. Missing, restricted, inconsistent, cyclic or excessively deep identity paths fail closed; supported paths contain at most 64 patient IDs. New merges require active roots and bounded identity histories to prevent cycles and excessive depth.
+
+### Transactions, confirmation and audit
+
+Management commands share the existing permission/actor/registry locks and bounded database retry rules. The patient change, management history, target version (for approval), success audit and command completion commit together. A failed write rolls back all of them. Nested flag/proposal IDs participate in request hashing so a confirmation key cannot resolve another record. The command table stores only hashes and numeric pointers/version, including `outcome_id`; it never caches private reasons or patient bodies.
+
+Confirmation checks current permissions, password, scope and source version again. Approval confirmation also checks that the survivor is still active at the committed version. Changed input/nested target, expired keys, revoked access or later versions fail closed. A restriction confirmation can return its metadata receipt while details remain hidden. Passwords are excluded from request digests and never persisted in receipts.
+
+Audit actions cover flag creation/resolution/reads, card changes/history reads, restriction/restore/state reads and merge request/approve/reject/cancel/reads. Successful write summaries contain only `version` and `record_id`; read summaries are empty. Clinical type codes, reasons, numbers and patient/contact values are excluded. Failed/denied outcomes are recorded after rollback. The audit viewer labels every new action and the related record ID without granting patient API access.
+
+`PatientRecordManagementTest` covers API privacy, permissions, reauthentication, versioning, history guards, two-person decisions, alias lookup and rollback through command completion. `PatientMergeConcurrencyTest` exercises simultaneous requests and approvals on disposable MySQL. Run the complete gate with `composer verify`; keep browser fixtures separate from that gate. Task 20 connects these APIs to patient screens. Hospital acceptance, final clinical permissions and emergency-access policy remain open.
+
+Task 19 verification on 11 November 2026: MySQL passed all 379 tests with 3,252 assertions. SQLite passed 369 tests with 3,179 assertions and ten MySQL-only skips. The additions comprise 45 API/integrity cases and three real concurrent merge cases. Twenty-six frontend tests passed; TypeScript and the production build passed. Eleven real browser checks passed with no page errors using separate requester/reviewer sessions, including origin protection, private flag reads, card history, restriction/restore, self-approval denial, reviewer reauthentication, lost approval confirmation, canonical lookup, source-write denial, audit privacy/mobile layout and logout. The additive migration and catalog are applied to development: nineteen known permissions, twenty-one existing grants, zero patient grants, seven categories and zero patients/staff/files/commands or management rows. Synthetic browser records are confined to the disposable test schema.

@@ -8,6 +8,12 @@ use Illuminate\Auth\Access\Response;
 
 class PatientPolicy
 {
+    public function reviewMerges(User $user): bool
+    {
+        return $user->hasPermission('patients.view')
+            && ($user->hasPermission('patients.merges.request') || $user->hasPermission('patients.merges.approve'));
+    }
+
     public function viewAny(User $user): bool
     {
         return $user->hasPermission('patients.view');
