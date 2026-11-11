@@ -11,6 +11,11 @@ use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 class DepartmentController extends Controller
 {
+    public function show(Department $department): DepartmentResource
+    {
+        return new DepartmentResource($department);
+    }
+
     public function index(ListDepartmentsRequest $request): AnonymousResourceCollection
     {
         $query = Department::query();

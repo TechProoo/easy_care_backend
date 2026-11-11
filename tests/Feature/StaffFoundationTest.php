@@ -52,7 +52,7 @@ class StaffFoundationTest extends TestCase
         $this->assertFalse(Gate::forUser($user)->allows('reference-data.view'));
     }
 
-    public function test_seeding_is_repeatable_preserves_edits_and_creates_no_staff_or_grants(): void
+    public function test_seeding_is_repeatable_preserves_edits_and_creates_no_staff_assignments(): void
     {
         $this->seed(DatabaseSeeder::class);
         Department::query()->where('code', 'nurse')->update(['name' => 'Local Nursing Department']);
@@ -60,10 +60,11 @@ class StaffFoundationTest extends TestCase
 
         $this->assertDatabaseCount('departments', 7);
         $this->assertDatabaseCount('roles', 7);
-        $this->assertDatabaseCount('permissions', 1);
+        $this->assertDatabaseCount('permissions', 5);
         $this->assertDatabaseCount('users', 0);
         $this->assertDatabaseCount('user_roles', 0);
-        $this->assertDatabaseCount('role_permissions', 0);
+        $this->assertDatabaseCount('role_permissions', 16);
+        $this->assertDatabaseCount('permission_baselines', 1);
         $this->assertDatabaseHas('departments', ['code' => 'nurse', 'name' => 'Local Nursing Department']);
     }
 

@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Collection;
 
 #[Fillable(['username', 'staff_code', 'first_name', 'last_name', 'middle_name', 'email', 'password'])]
 #[Hidden(['password', 'remember_token'])]
@@ -48,9 +49,46 @@ class User extends Authenticatable
 
     public function hasPermission(string $code): bool
     {
-        return $this->is_active && $this->roles()
-            ->whereHas('permissions', fn (Builder $query): Builder => $query->where('code', $code))
-            ->exists();
+        return $this->is_active
+            && array_key_exists($code, config('authorization.permissions'))
+            && $this->roles()
+                ->whereHas('permissions', fn (Builder $query): Builder => $query->where('code', $code))
+                ->exists();
+    }
+
+    /** @return Collection<int, string> */
+    public function permissionCodes(): Collection
+    {
+        if (! $this->is_active) {
+            return collect();
+        }
+
+        return Permission::query()
+            ->whereIn('code', array_keys(config('authorization.permissions')))
+            ->whereHas('roles.users', fn (Builder $query): Builder => $query->where('users.id', $this->id))
+            ->orderBy('code')->pluck('code');
+    }
+
+    public function scopeVisibleTo(Builder $query, User $viewer): Builder
+    {
+        if ($viewer->hasPermission('staff.view_any')) {
+            return $query;
+        }
+
+        $ownEntry = $viewer->hasPermission('staff.view_self');
+        $department = $viewer->hasPermission('staff.view_department') ? $viewer->department_id : null;
+
+        return $query->where(function (Builder $query) use ($viewer, $ownEntry, $department): void {
+            $query->whereRaw('1 = 0');
+
+            if ($ownEntry) {
+                $query->orWhere('users.id', $viewer->id);
+            }
+
+            if ($department !== null) {
+                $query->orWhere('users.department_id', $department);
+            }
+        });
     }
 
     /**

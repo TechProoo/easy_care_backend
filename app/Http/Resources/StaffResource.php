@@ -26,7 +26,7 @@ class StaffResource extends JsonResource
             'is_active' => $this->is_active,
             'department' => $this->department?->only(['id', 'code', 'name']),
             'roles' => $this->roles->sortBy('code')->values()->map->only(['code', 'name']),
-            'permissions' => $this->roles->flatMap->permissions->pluck('code')->unique()->sort()->values(),
+            'permissions' => $this->resource->permissionCodes(),
         ];
     }
 }

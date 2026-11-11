@@ -41,13 +41,15 @@ Completed 10 November 2026: additive staff migrations are applied to `easycare_d
 ## Stage 3: Build staff accounts and authorization
 
 - [x] **9. Implement staff login, logout and session handling.** Use secure password hashing, browser session protection, login throttling and account activation checks. Test that logout ends access and disabled staff cannot sign in.
-- [ ] **10. Implement server-side authorization.** Enforce role permissions and record scope on every protected endpoint. A hidden frontend button must not be the only restriction.
+- [x] **10. Implement server-side authorization for current APIs.** Enforce role permissions and record scope on every protected resource endpoint. A hidden frontend button must not be the only restriction. Extend policies and scope with each later workflow.
 - [ ] **11. Implement staff administration and account recovery.** Support authorized staff creation, department/role assignment, profile changes, deactivation and a hospital-approved password reset process that works with the local deployment.
 - [ ] **12. Connect the frontend to one real identity system.** Replace mock login and competing auth stores; protect module routes, restore sessions safely and clear user-specific cached data when accounts change.
 
 Stage complete when each role can sign in, use only permitted operations and sign out through the real frontend.
 
 Task 9 completed 11 November 2026: session login, CSRF bootstrap, current-user lookup and logout are implemented and connected to the frontend. Sessions rotate on login and are invalidated on logout; expired sessions, inactive accounts and changed passwords lose access. Login is throttled and no bearer token or browser-stored identity is trusted. All 67 backend tests passed on MySQL; eight browser checks passed, and the frontend builds. A private interactive `staff:create` console command supports first-account setup without a default password. Tasks 11 and 12 are partially addressed by this setup and sign-in integration; the full permissions matrix, administration/recovery UI and clinical cache isolation remain unfinished. Existing patient and clinical screens still contain demonstration data.
+
+Task 10 completed for current APIs on 11 November 2026: known permission gates, model policies, staff scopes and a protected permission catalog are implemented. Ordinary roles initially read departments and their own directory entry; the admin preset also reads the full directory and grants catalog. Department-directory access is opt-in, null departments fail closed, and admin has no bypass. Console grant/revoke operations take effect on subsequent requests; repeat seeding preserves deliberate revocations. All 91 tests passed on MySQL (456 assertions); SQLite passed 90 tests with one MySQL-only check skipped. The additive migration and initial grants are applied locally. Staff administration writes remain task 11. This does not finalize hospital patient-access decisions or authorize the clinical demonstration screens; every future resource must add its own permission and record-scope tests. See [the authorization contract](LOCAL_DEVELOPMENT.md#server-side-authorization).
 
 ## Stage 4: Add shared record safeguards
 
@@ -150,7 +152,7 @@ Stage complete when the hospital has accepted the working release and can operat
 
 ## Current next task
 
-**Task 10: implement server-side authorization for the agreed permissions matrix.** Database/API foundations and staff session handling are complete. Continue Stage 3 with permission policies, staff administration and recovery before patient registration. Stage 1 hospital decisions remain unchecked and must be confirmed before their dependent workflows are finalized. No unfinished task above is marked complete merely because its table exists in the proposal.
+**Task 11: implement staff administration and account recovery.** Database/API foundations, staff sessions and authorization for implemented APIs are complete. Continue Stage 3 with authorized account management, department/role assignment and a local-server recovery process before patient registration. Stage 1 hospital decisions remain unchecked and must be confirmed before their dependent workflows are finalized. No unfinished task above is marked complete merely because its table exists in the proposal.
 
 ## Reference documents
 

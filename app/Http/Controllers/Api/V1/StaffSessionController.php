@@ -43,7 +43,7 @@ class StaffSessionController extends Controller
 
     private function sessionResponse(Request $request, User $user): JsonResponse
     {
-        $user->load(['department', 'roles.permissions']);
+        $user->load(['department', 'roles']);
 
         return response()->json(['data' => [
             'user' => new StaffResource($user),

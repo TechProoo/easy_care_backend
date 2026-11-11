@@ -1,10 +1,14 @@
 <?php
 
+use App\Http\Controllers\Api\V1\AccessControlController;
 use App\Http\Controllers\Api\V1\DepartmentController;
 use App\Http\Controllers\Api\V1\HealthController;
+use App\Http\Controllers\Api\V1\StaffDirectoryController;
 use App\Http\Controllers\Api\V1\StaffSessionController;
 use App\Http\Middleware\EnsureStaffIsActive;
 use App\Http\Middleware\PreventAuthResponseCaching;
+use App\Models\Department;
+use App\Models\User;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->name('api.v1.')->group(function (): void {
@@ -19,7 +23,15 @@ Route::prefix('v1')->name('api.v1.')->group(function (): void {
             Route::get('auth/me', [StaffSessionController::class, 'show'])->name('auth.me');
             Route::post('auth/logout', [StaffSessionController::class, 'destroy'])->name('auth.logout');
             Route::get('departments', [DepartmentController::class, 'index'])
-                ->middleware('can:reference-data.view')->name('departments.index');
+                ->can('viewAny', Department::class)->name('departments.index');
+            Route::get('departments/{department}', [DepartmentController::class, 'show'])
+                ->can('view', 'department')->name('departments.show');
+            Route::get('staff', [StaffDirectoryController::class, 'index'])
+                ->can('viewAny', User::class)->name('staff.index');
+            Route::get('staff/{user}', [StaffDirectoryController::class, 'show'])
+                ->can('view', 'user')->name('staff.show');
+            Route::get('access-control', AccessControlController::class)
+                ->middleware('can:authorization.view')->name('access-control.index');
         });
     });
 });

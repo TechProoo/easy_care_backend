@@ -2,7 +2,10 @@
 
 namespace App\Providers;
 
+use App\Models\Department;
 use App\Models\User;
+use App\Policies\DepartmentPolicy;
+use App\Policies\UserPolicy;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -24,7 +27,12 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        Gate::define('reference-data.view', fn (User $user): bool => $user->hasPermission('reference-data.view'));
+        foreach (array_keys(config('authorization.permissions')) as $permission) {
+            Gate::define($permission, fn (User $user): bool => $user->hasPermission($permission));
+        }
+
+        Gate::policy(User::class, UserPolicy::class);
+        Gate::policy(Department::class, DepartmentPolicy::class);
 
         RateLimiter::for('api', fn (Request $request): Limit => Limit::perMinute(120)
             ->by($request->ip()));

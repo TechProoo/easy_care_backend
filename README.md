@@ -1,6 +1,6 @@
 # EasyCare backend
 
-Laravel PHP backend for the EasyCare React application. The database/API foundation and staff session login are implemented. Patient workflows and the full hospital permissions matrix are later stages.
+Laravel PHP backend for the EasyCare React application. Database/API foundations, staff sessions and authorization for the current APIs are implemented. Patient workflows and their hospital-approved access rules are later stages.
 
 ## Local Windows setup
 
@@ -40,10 +40,11 @@ For a foreground server, run `stop` and then `.\dev.cmd serve`. Press Ctrl+C to 
 - PHP 8.4, Composer 2, Laravel 13 and MySQL 8.4 LTS.
 - Local MySQL database: `easycare_dev`, accessible to a dedicated database-scoped application account.
 - Laravel starter migrations: users/password resets/sessions, cache/locks and jobs/failed jobs.
-- Staff foundation migrations: departments, staff identity fields, roles, permissions and their assignment tables.
+- Staff foundation migrations: departments, staff identity fields, roles, permissions, assignment tables and an initial-permissions baseline marker.
 - Versioned API readiness endpoint: `GET /api/v1/health`.
 - Staff session endpoints: CSRF bootstrap, login, current staff identity and logout under `/api/v1/auth`.
-- Protected department list: `GET /api/v1/departments`, with validation, filtering, sorting and pagination.
+- Protected department and staff-directory reads, with validation, filtering, sorting, pagination and record-scope policies.
+- A protected role/permission catalog and a console command to inspect, grant or revoke known role permissions.
 - Private `backend/.env` is configured with the generated local database password and application key.
 
 `vendor/` contains installed PHP packages. `composer.lock` records their exact versions. `.env` and the project-local tools/database files are excluded from Git.
@@ -56,7 +57,9 @@ From `backend`, create an account through private interactive prompts:
 .\dev.cmd artisan staff:create --role=admin
 ```
 
-Use your own username and password; no demonstration accounts or default passwords are created. The password is entered privately and is not a command-line argument. The chosen role must already exist in the seeded catalog. Omitting `--role` creates an account with no module access; additional permissions are assigned in the later staff-administration stage.
+Use your own username and password; no demonstration accounts or default passwords are created. The password is entered privately and is not a command-line argument. Run migrations and `db:seed` first. The chosen role must already exist in the seeded catalog. Omitting `--role` creates an account with no module access; staff-administration screens are a later stage.
+
+The initial admin role can read the staff directory and authorization catalog. Other initial roles can read departments and their own directory entry. Department-wide staff access is opt-in. These permissions do not grant access to future patient records. Inspect a role with `.\dev.cmd artisan access:role doctor`; see the [authorization contract](docs/LOCAL_DEVELOPMENT.md#server-side-authorization) for grants and revocations. Rerunning the seeder preserves deliberate permission removals.
 
 Start the backend with `dev.cmd start`, then run `npm run dev` in the existing frontend directory and open its printed URL. The frontend uses `/api/v1` through Vite's local proxy to port 8000. It no longer sends sign-in to the previous cloud backend. Staff without assigned roles see an access-pending page. Staff administration and password recovery are not implemented yet.
 

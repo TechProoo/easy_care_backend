@@ -194,6 +194,35 @@ class StaffSessionTest extends TestCase
         $this->send('GET', '/api/v1/auth/me')->assertJsonPath('data.user.id', $user->id);
     }
 
+    public function test_permission_revocations_take_effect_in_an_existing_session(): void
+    {
+        $user = $this->staff();
+        $this->login($user);
+        $this->send('GET', '/api/v1/departments')->assertOk();
+        $user->roles()->sole()->permissions()->detach();
+
+        $this->send('GET', '/api/v1/departments')->assertForbidden();
+        $this->send('GET', '/api/v1/auth/me')->assertOk()->assertJsonPath('data.user.permissions', []);
+    }
+
+    public function test_department_changes_take_effect_in_an_existing_session(): void
+    {
+        $user = $this->staff();
+        $user->roles()->sole()->permissions()->attach(Permission::factory()->create(['code' => 'staff.view_department']));
+        $oldColleague = User::factory()->create(['department_id' => $user->department_id]);
+        $newColleague = User::factory()->for(Department::factory())->create();
+        $this->login($user);
+        $this->send('GET', '/api/v1/staff/'.$oldColleague->id)->assertOk();
+        $this->send('GET', '/api/v1/staff/'.$newColleague->id)->assertNotFound();
+
+        $user->department_id = $newColleague->department_id;
+        $user->save();
+
+        $this->send('GET', '/api/v1/staff/'.$oldColleague->id)->assertNotFound();
+        $this->send('GET', '/api/v1/staff/'.$newColleague->id)->assertOk();
+        $this->send('GET', '/api/v1/staff')->assertOk()->assertJsonPath('meta.total', 2);
+    }
+
     private function staff(): User
     {
         $user = User::factory()->for(Department::factory())->create([

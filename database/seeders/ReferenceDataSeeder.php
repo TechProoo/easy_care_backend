@@ -3,7 +3,6 @@
 namespace Database\Seeders;
 
 use App\Models\Department;
-use App\Models\Permission;
 use App\Models\Role;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
@@ -31,10 +30,7 @@ class ReferenceDataSeeder extends Seeder
                 Role::query()->firstOrCreate(['code' => $code], ['name' => $name]);
             }
 
-            Permission::query()->firstOrCreate(
-                ['code' => 'reference-data.view'],
-                ['name' => 'View reference data'],
-            );
+            $this->call(AuthorizationSeeder::class);
         });
     }
 }

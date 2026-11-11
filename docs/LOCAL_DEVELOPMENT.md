@@ -73,7 +73,7 @@ Apply the application migrations and seed the reference catalogs:
 
 The schema adds `departments`, `roles`, `permissions`, `user_roles` and `role_permissions`, plus staff identity fields on `users`. A department has many staff; staff have many roles through `user_roles`; roles have many permissions through `role_permissions`. Foreign keys prevent orphan relationships, unique keys prevent duplicate codes/assignments and MySQL checks require a positive staff version. Deleting a referenced department is restricted; deleting an authorization catalog record removes its pivot links, without deleting staff or the other catalog records.
 
-The repeatable seeder adds seven initial department/role catalog entries matching the current frontend modules and the `reference-data.view` permission. These are editable starting values, not an approved hospital permissions matrix. Seeding preserves existing catalog names and creates no staff accounts, role assignments or permission grants. Factories are for synthetic tests only.
+The repeatable seeder adds seven initial department/role entries matching the current frontend modules and the five known permissions defined in `config/authorization.php`. It applies the initial role grants once, tracked by `permission_baselines`. These are editable starting values; patient access rules still require hospital agreement. Seeding preserves existing catalog names and subsequent grant/revocation decisions. It creates no staff accounts or staff-role assignments. Factories are for synthetic tests only. The initial counts are seven departments, seven roles, five permissions, sixteen role-permission links and one baseline marker.
 
 The additive migration preserves existing staff IDs, passwords, email addresses and the original `name` column. Existing users receive `legacy_<id>` usernames and provisional split name fields; review these when staff account management is implemented. The application maintains `name` for compatibility when structured names change. Email is optional; its existing 255-character capacity is retained. The proposal's smaller email length and microsecond timestamps on existing starter columns are not retroactively imposed. Staff profiles/contacts and the other hospital tables will arrive with the corresponding features.
 
@@ -119,6 +119,10 @@ Implemented routes:
 | `GET /api/v1/auth/me` | Active signed-in staff | Current identity, CSRF token and expiry; `401` for invalid sessions. |
 | `POST /api/v1/auth/logout` | Active signed-in staff, CSRF protected | `204`, invalidates the current server session. |
 | `GET /api/v1/departments` | Active signed-in staff with `reference-data.view` | Paginated department resources: `id`, `code`, `name`, `created_at`, `updated_at`. |
+| `GET /api/v1/departments/{department}` | Same department-read permission | One department resource. |
+| `GET /api/v1/staff` | `staff.view_any`, or `staff.view_department` with an assigned department | Paginated directory entries within the viewer's permitted scope. |
+| `GET /api/v1/staff/{user}` | Scope policy for that staff record | One directory entry; inaccessible and missing staff IDs both return `404`. |
+| `GET /api/v1/access-control` | `authorization.view` | `data.permissions` (code/name) and `data.roles` (code/name/permission codes), restricted to known permission codes. |
 
 The existing `/` response and framework `/up` route remain available. `/up` checks application liveness; the versioned health route also checks database readiness.
 
@@ -132,6 +136,8 @@ Department query parameters:
 | `per_page` | Integer from 1 to 100 | `25` |
 
 Lists use an ID tie-breaker for stable ordering. SQL wildcard characters in `q` are searched literally. Unknown query fields are ignored and are not copied into pagination links. No department write endpoint is exposed at this stage.
+
+The staff directory uses the same query bounds and pagination format. Its `q` searches name or username; allowed sorts are `name`, `-name`, `username` and `-username`, defaulting to `name`. Each entry contains only `id`, `name`, `username`, `staff_code`, `is_active` and department code/name/ID. It excludes email, credentials, roles and permission grants. Scope is applied before searching and pagination, so counts and search results cannot include inaccessible staff.
 
 Errors always return JSON under `/api`, including requests without an Accept header. The shape is:
 
@@ -162,7 +168,41 @@ Errors always return JSON under `/api`, including requests without an Accept hea
 
 The API limiter permits 120 requests per minute per client IP. Revisit the limit with realistic shared-network usage before hospital deployment. Times returned by current resources are ISO 8601 UTC strings ending in `Z`. Future date-only clinical values must remain `YYYY-MM-DD`; future money and precise quantities should use decimal strings, with currency/units specified by each resource contract.
 
-Foundation verification on 10 November 2026: all 51 PHPUnit tests passed on MySQL (138 assertions). The fast SQLite suite passed 50 tests (137 assertions), with the MySQL-only version-constraint test skipped. Coverage includes clean migrations, preservation/rollback of existing starter users, guarded rollback for missing email, relationship integrity, repeatable seeding, access denial, validation, pagination, CORS, sanitized failures and test-database isolation. The live health endpoint returned HTTP 200 with the configured frontend CORS origin; the development database contains seven departments, seven roles, one permission and no seeded staff accounts or role assignments.
+Foundation verification on 10 November 2026: all 51 PHPUnit tests passed on MySQL (138 assertions). The fast SQLite suite passed 50 tests (137 assertions), with the MySQL-only version-constraint test skipped. Coverage includes clean migrations, preservation/rollback of existing starter users, guarded rollback for missing email, relationship integrity, repeatable seeding, access denial, validation, pagination, CORS, sanitized failures and test-database isolation. The live health endpoint returned HTTP 200 with the configured frontend CORS origin. Task 10 subsequently extends the permission catalog and grants as described below.
+
+## Server-side authorization
+
+Laravel gates check explicit permission codes; model policies enforce record scope. Every current resource endpoint requires a valid active staff session and a gate/policy. The current-user and logout routes require the staff session itself. Frontend role guards do not authorize API requests. An admin role has no unconditional bypass: removing a permission removes its access. Unknown permission codes and wildcards grant nothing. Multiple assigned roles combine their known permissions without duplicates.
+
+The initial read-only baseline is:
+
+| Permission | Initial admin | Other six initial roles | Meaning |
+|---|---|---|---|
+| `reference-data.view` | Yes | Yes | Read department reference data |
+| `staff.view_self` | Yes | Yes | Read one's own directory entry |
+| `staff.view_department` | No | No | Opt-in directory access to staff in one's assigned department |
+| `staff.view_any` | Yes | No | Read the complete staff directory |
+| `authorization.view` | Yes | No | Read roles and their known grants |
+
+An account without a role or grant can still inspect its own signed-in identity and log out, but has no resource access. Own-entry access alone does not allow enumeration through the staff list. Department access never treats an unassigned department as a group: a staff member without a department cannot use department-wide access. An explicit self grant and department grant form a union; a full-directory grant covers all staff. Caller-supplied department IDs cannot widen the scope. Unauthorized staff IDs return the same generic `404` as missing IDs.
+
+Effective permissions are queried from the database on each request. Revoking a permission or staff-role assignment, or changing the viewer's department, affects subsequent requests in an existing session. Current-user responses also return fresh, sorted permission codes. Authenticated directory/catalog responses and failures use `Cache-Control: no-store, private`. Staff and department write policies currently deny access; task 11 adds the authorized management workflows.
+
+Run these commands from the server console, using exact catalog codes:
+
+```powershell
+.\dev.cmd artisan access:role doctor
+.\dev.cmd artisan access:role doctor staff.view_department
+.\dev.cmd artisan access:role doctor staff.view_department --revoke
+```
+
+The first command only lists grants. The second grants department-directory access to everyone assigned the doctor role; the third removes it. Grant/revoke commands are idempotent and reject unknown roles, unknown codes and an unseeded permission catalog. Console access is an administrative boundary; the API exposes no grant or role-membership mutation endpoint yet. `staff:create --role=...` assigns an existing role without changing its grants.
+
+For an existing development installation, run `artisan migrate` followed by `artisan db:seed`. The new migration adds only `permission_baselines`. The seeder creates the catalog and applies baseline grants in one transaction when the marker is absent. A later seed run preserves removals and custom grants; it does not silently regrant access or automatically grant future permissions. Retain this marker with database backups. Rolling back its migration removes the marker but leaves seeded grants; rerunning the migration and seeder afterward would apply the initial baseline again. Do not reset the marker as a routine way to refresh catalogs.
+
+These rules cover the implemented staff/reference APIs. Patient, encounter, prescription, stock and financial access rules are not implemented yet. Each new resource needs an explicit permission, model policy, database query scope and denial tests with its workflow. Department membership alone must never be assumed to grant access to clinical records. Hospital-specific access, emergency access, approvals and exports remain subject to task 2's decisions.
+
+Task 10 verification on 11 November 2026: all 91 backend tests passed on MySQL (456 assertions); SQLite passed 90 tests (455 assertions), with one MySQL-only check skipped. Coverage includes all six ordinary role presets, explicit grants, admin revocation, null departments, inaccessible IDs, scoped search/pagination, unknown permissions, duplicate grants, failed initialization rollback and seed preservation of revocations. Database-backed session tests verify permission revocation and department changes without signing in again. A route audit checks authentication and authorization middleware on every current resource route. The additive migration and baseline are applied to `easycare_dev`, with no staff accounts or role assignments created; the live health endpoint returns HTTP 200.
 
 ## Frontend connection and authentication boundary
 
