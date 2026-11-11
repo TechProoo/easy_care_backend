@@ -223,6 +223,46 @@ class StaffSessionTest extends TestCase
         $this->send('GET', '/api/v1/staff')->assertOk()->assertJsonPath('meta.total', 2);
     }
 
+    public function test_administration_and_recovery_writes_require_real_csrf_protection(): void
+    {
+        $this->seed(\Database\Seeders\DatabaseSeeder::class);
+        $admin = User::factory()->create(['password' => 'Correct-secret-123!']);
+        $admin->roles()->attach(Role::where('code', 'admin')->sole());
+        $this->login($admin);
+        foreach ([
+            '/api/v1/staff-management',
+            '/api/v1/staff-management/'.$admin->id.'/password-reset',
+            '/api/v1/auth/password/reset',
+        ] as $endpoint) {
+            $this->send('POST', $endpoint, [], ['X-CSRF-TOKEN' => 'incorrect'])->assertStatus(419);
+        }
+        $this->assertDatabaseCount('users', 1);
+        $this->assertDatabaseCount('staff_password_resets', 0);
+    }
+
+    public function test_admin_deactivation_removes_a_real_session_permanently(): void
+    {
+        $this->seed(\Database\Seeders\DatabaseSeeder::class);
+        $admin = User::factory()->create(['password' => 'Correct-secret-123!']);
+        $admin->roles()->attach(Role::where('code', 'admin')->sole());
+        $target = User::factory()->create(['password' => 'Correct-secret-123!']);
+        $target->roles()->attach(Role::where('code', 'doctor')->sole());
+        $this->login($target);
+        $oldCookie = $this->cookie;
+        $this->cookie = null;
+        $this->csrf = null;
+        $this->login($admin);
+        $this->send('PATCH', '/api/v1/staff-management/'.$target->id, [
+            'version' => 1, 'first_name' => $target->first_name, 'last_name' => $target->last_name,
+            'email' => $target->email, 'staff_code' => null, 'department_id' => null,
+            'role_codes' => ['doctor'], 'is_active' => false, 'current_password' => 'Correct-secret-123!',
+        ])->assertOk();
+        $target->is_active = true;
+        $target->save();
+        $this->cookie = $oldCookie;
+        $this->send('GET', '/api/v1/auth/me')->assertUnauthorized();
+    }
+
     private function staff(): User
     {
         $user = User::factory()->for(Department::factory())->create([

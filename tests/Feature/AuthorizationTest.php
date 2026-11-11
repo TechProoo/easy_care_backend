@@ -52,7 +52,7 @@ class AuthorizationTest extends TestCase
         $other = $this->staff('doctor');
         $this->actingAs($viewer)->getJson('/api/v1/staff')->assertOk()->assertJsonPath('meta.total', 2);
         $this->getJson('/api/v1/staff/'.$other->id)->assertOk()->assertJsonPath('data.id', $other->id);
-        $this->getJson('/api/v1/access-control')->assertOk()->assertJsonCount(5, 'data.permissions')
+        $this->getJson('/api/v1/access-control')->assertOk()->assertJsonCount(7, 'data.permissions')
             ->assertJsonCount(7, 'data.roles')->assertJsonMissingPath('data.users');
 
         $viewer->roles()->sole()->permissions()->detach(
@@ -159,7 +159,7 @@ class AuthorizationTest extends TestCase
 
     public function test_every_resource_endpoint_has_server_authentication_and_authorization(): void
     {
-        $public = ['api/v1/health', 'api/v1/auth/csrf-token', 'api/v1/auth/login'];
+        $public = ['api/v1/health', 'api/v1/auth/csrf-token', 'api/v1/auth/login', 'api/v1/auth/password/reset'];
         $session = ['api/v1/auth/me', 'api/v1/auth/logout'];
         foreach (Route::getRoutes() as $route) {
             if (! str_starts_with($route->uri(), 'api/v1/') || in_array($route->uri(), $public, true)) {

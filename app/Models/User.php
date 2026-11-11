@@ -63,6 +63,12 @@ class User extends Authenticatable
             return collect();
         }
 
+        return $this->assignedPermissionCodes();
+    }
+
+    /** @return Collection<int, string> */
+    public function assignedPermissionCodes(): Collection
+    {
         return Permission::query()
             ->whereIn('code', array_keys(config('authorization.permissions')))
             ->whereHas('roles.users', fn (Builder $query): Builder => $query->where('users.id', $this->id))

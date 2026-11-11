@@ -60,11 +60,11 @@ class StaffFoundationTest extends TestCase
 
         $this->assertDatabaseCount('departments', 7);
         $this->assertDatabaseCount('roles', 7);
-        $this->assertDatabaseCount('permissions', 5);
+        $this->assertDatabaseCount('permissions', 7);
         $this->assertDatabaseCount('users', 0);
         $this->assertDatabaseCount('user_roles', 0);
-        $this->assertDatabaseCount('role_permissions', 16);
-        $this->assertDatabaseCount('permission_baselines', 1);
+        $this->assertDatabaseCount('role_permissions', 18);
+        $this->assertDatabaseCount('permission_baselines', 2);
         $this->assertDatabaseHas('departments', ['code' => 'nurse', 'name' => 'Local Nursing Department']);
     }
 

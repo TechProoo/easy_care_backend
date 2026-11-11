@@ -45,6 +45,8 @@ For a foreground server, run `stop` and then `.\dev.cmd serve`. Press Ctrl+C to 
 - Staff session endpoints: CSRF bootstrap, login, current staff identity and logout under `/api/v1/auth`.
 - Protected department and staff-directory reads, with validation, filtering, sorting, pagination and record-scope policies.
 - A protected role/permission catalog and a console command to inspect, grant or revoke known role permissions.
+- Staff administration APIs and screens for profiles, department/role assignment and activation, with password reauthentication and version checks.
+- Administrator-issued, one-use password reset codes and a trusted server-console recovery command.
 - Private `backend/.env` is configured with the generated local database password and application key.
 
 `vendor/` contains installed PHP packages. `composer.lock` records their exact versions. `.env` and the project-local tools/database files are excluded from Git.
@@ -57,11 +59,11 @@ From `backend`, create an account through private interactive prompts:
 .\dev.cmd artisan staff:create --role=admin
 ```
 
-Use your own username and password; no demonstration accounts or default passwords are created. The password is entered privately and is not a command-line argument. Run migrations and `db:seed` first. The chosen role must already exist in the seeded catalog. Omitting `--role` creates an account with no module access; staff-administration screens are a later stage.
+Use your own username and password; no demonstration accounts or default passwords are created. The password is entered privately and is not a command-line argument. Run migrations and `db:seed` first. The chosen role must already exist in the seeded catalog. Omitting `--role` creates an account with no module access.
 
-The initial admin role can read the staff directory and authorization catalog. Other initial roles can read departments and their own directory entry. Department-wide staff access is opt-in. These permissions do not grant access to future patient records. Inspect a role with `.\dev.cmd artisan access:role doctor`; see the [authorization contract](docs/LOCAL_DEVELOPMENT.md#server-side-authorization) for grants and revocations. Rerunning the seeder preserves deliberate permission removals.
+The initial admin role can read the staff directory and authorization catalog, manage staff and issue password reset codes. Other initial roles can read departments and their own directory entry. Department-wide staff access is opt-in. These permissions do not grant access to future patient records. Inspect a role with `.\dev.cmd artisan access:role doctor`; see the [authorization contract](docs/LOCAL_DEVELOPMENT.md#server-side-authorization) for grants and revocations. Rerunning the seeder preserves deliberate permission removals.
 
-Start the backend with `dev.cmd start`, then run `npm run dev` in the existing frontend directory and open its printed URL. The frontend uses `/api/v1` through Vite's local proxy to port 8000. It no longer sends sign-in to the previous cloud backend. Staff without assigned roles see an access-pending page. Staff administration and password recovery are not implemented yet.
+Start the backend with `dev.cmd start`, then run `npm run dev` in the existing frontend directory and open its printed URL. The frontend uses `/api/v1` through Vite's local proxy to port 8000. Staff without assigned roles see an access-pending page. Authorized staff manage accounts at `/admin/users`. New accounts receive an unknown random initial password; after verifying identity, issue a reset code so the staff member can choose their password at `/forgot-password`. Codes expire after 15 minutes. If the sole administrator needs recovery, run `.\dev.cmd artisan staff:recover their-username` interactively from the trusted server console. See the [staff administration and recovery contract](docs/LOCAL_DEVELOPMENT.md#staff-administration-and-recovery). Hospital approval of the identity-verification procedure remains a release requirement.
 
 ## Where code goes
 

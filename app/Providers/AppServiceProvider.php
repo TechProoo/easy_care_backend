@@ -39,5 +39,14 @@ class AppServiceProvider extends ServiceProvider
 
         RateLimiter::for('staff-login', fn (Request $request): Limit => Limit::perMinute(20)
             ->by('staff-login-ip:'.$request->ip()));
+
+        RateLimiter::for('staff-management', fn (Request $request): Limit => Limit::perMinute(20)
+            ->by('staff-management:'.$request->user('web')?->id.'|'.$request->ip()));
+
+        RateLimiter::for('staff-recovery', fn (Request $request): array => [
+            Limit::perMinute(10)->by('staff-recovery-ip:'.$request->ip()),
+            Limit::perMinute(5)->by('staff-recovery-user:'.hash('sha256',
+                (is_string($request->input('username')) ? mb_strtolower($request->input('username')) : '').'|'.$request->ip())),
+        ]);
     }
 }

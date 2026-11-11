@@ -2,9 +2,9 @@
 
 namespace App\Console\Commands;
 
+use App\Http\Requests\StaffPasswordRules;
 use App\Models\Role;
 use App\Models\User;
-use Closure;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
@@ -12,7 +12,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
-use Illuminate\Validation\Rules\Password;
 
 #[Signature('staff:create {username?} {--role= : Existing role code; omit for no role}')]
 #[Description('Create a staff account using private interactive password prompts')]
@@ -50,14 +49,7 @@ class CreateStaffAccount extends Command
             'first_name' => ['required', 'string', 'max:64'],
             'last_name' => ['required', 'string', 'max:64'],
             'email' => ['nullable', 'email', 'max:255', Rule::unique('users')],
-            'password' => [
-                'required', 'string', 'confirmed', 'max:72', Password::min(12)->mixedCase()->numbers(),
-                function (string $attribute, mixed $value, Closure $fail): void {
-                    if (is_string($value) && strlen($value) > 72) {
-                        $fail('The password must not exceed 72 bytes.');
-                    }
-                },
-            ],
+            'password' => StaffPasswordRules::make(),
             'role' => ['nullable', 'string', Rule::exists('roles', 'code')],
         ]);
 

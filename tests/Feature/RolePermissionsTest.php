@@ -22,15 +22,15 @@ class RolePermissionsTest extends TestCase
 
         foreach (Role::all() as $role) {
             $expected = $role->code === 'admin'
-                ? ['authorization.view', 'reference-data.view', 'staff.view_any', 'staff.view_self']
+                ? ['authorization.view', 'reference-data.view', 'staff.manage', 'staff.reset_password', 'staff.view_any', 'staff.view_self']
                 : ['reference-data.view', 'staff.view_self'];
             $this->assertSame($expected, $role->permissions()->orderBy('code')->pluck('code')->all());
         }
 
         $this->assertDatabaseCount('users', 0);
         $this->assertDatabaseCount('user_roles', 0);
-        $this->assertDatabaseCount('role_permissions', 16);
-        $this->assertDatabaseCount('permission_baselines', 1);
+        $this->assertDatabaseCount('role_permissions', 18);
+        $this->assertDatabaseCount('permission_baselines', 2);
     }
 
     public function test_grants_and_revocations_are_idempotent_and_apply_to_existing_staff(): void
@@ -48,7 +48,7 @@ class RolePermissionsTest extends TestCase
         }
 
         $this->assertTrue($user->hasPermission('staff.view_any'));
-        $this->assertDatabaseCount('role_permissions', 17);
+        $this->assertDatabaseCount('role_permissions', 19);
 
         for ($attempt = 0; $attempt < 2; $attempt++) {
             $this->artisan('access:role', ['role' => 'doctor', 'permission' => 'staff.view_any', '--revoke' => true])
@@ -56,7 +56,7 @@ class RolePermissionsTest extends TestCase
         }
 
         $this->assertFalse($user->hasPermission('staff.view_any'));
-        $this->assertDatabaseCount('role_permissions', 16);
+        $this->assertDatabaseCount('role_permissions', 18);
     }
 
     public function test_reseeding_preserves_revocations_custom_grants_and_edited_labels(): void
@@ -77,9 +77,9 @@ class RolePermissionsTest extends TestCase
         $this->assertTrue($doctor->permissions()->where('code', 'staff.view_department')->exists());
         $this->assertSame('Hospital administration', $role->fresh()->name);
         $this->assertSame('Approved directory access', $permission->fresh()->name);
-        $this->assertDatabaseCount('role_permissions', 16);
-        $this->assertDatabaseCount('permission_baselines', 1);
-        $this->assertDatabaseCount('permissions', 5);
+        $this->assertDatabaseCount('role_permissions', 18);
+        $this->assertDatabaseCount('permission_baselines', 2);
+        $this->assertDatabaseCount('permissions', 7);
     }
 
     public function test_unknown_roles_permissions_and_incomplete_revocations_fail_without_changes(): void
@@ -88,12 +88,12 @@ class RolePermissionsTest extends TestCase
         $this->artisan('access:role', ['role' => 'missing', 'permission' => 'staff.view_any'])->assertFailed();
         $this->artisan('access:role', ['role' => 'doctor', 'permission' => '*'])->assertFailed();
         $this->artisan('access:role', ['role' => 'doctor', '--revoke' => true])->assertFailed();
-        $this->assertDatabaseCount('role_permissions', 16);
+        $this->assertDatabaseCount('role_permissions', 18);
 
         Permission::where('code', 'staff.view_department')->sole()->delete();
         $this->artisan('access:role', ['role' => 'doctor', 'permission' => 'staff.view_department'])
             ->expectsOutput('The permission catalog is not seeded.')->assertFailed();
-        $this->assertDatabaseCount('role_permissions', 16);
+        $this->assertDatabaseCount('role_permissions', 18);
     }
 
     public function test_inspecting_role_permissions_does_not_change_grants(): void

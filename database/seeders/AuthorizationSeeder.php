@@ -19,20 +19,27 @@ class AuthorizationSeeder extends Seeder
                 Permission::query()->firstOrCreate(['code' => $code], ['name' => $name]);
             }
 
-            $firstApplication = DB::table('permission_baselines')->insertOrIgnore([
-                'code' => config('authorization.baseline'),
-                'applied_at' => now(),
-            ]);
+            $baselines = [
+                config('authorization.baseline') => config('authorization.role_defaults'),
+                config('authorization.management_baseline') => config('authorization.management_role_defaults'),
+            ];
 
-            if ($firstApplication === 0) {
-                return;
-            }
+            foreach ($baselines as $baseline => $roles) {
+                $firstApplication = DB::table('permission_baselines')->insertOrIgnore([
+                    'code' => $baseline,
+                    'applied_at' => now(),
+                ]);
 
-            foreach (config('authorization.role_defaults') as $code => $permissions) {
-                $role = Role::query()->where('code', $code)->firstOrFail();
-                $role->permissions()->syncWithoutDetaching(
-                    Permission::query()->whereIn('code', $permissions)->pluck('id')->all(),
-                );
+                if ($firstApplication === 0) {
+                    continue;
+                }
+
+                foreach ($roles as $code => $permissions) {
+                    $role = Role::query()->where('code', $code)->firstOrFail();
+                    $role->permissions()->syncWithoutDetaching(
+                        Permission::query()->whereIn('code', $permissions)->pluck('id')->all(),
+                    );
+                }
             }
         });
     }

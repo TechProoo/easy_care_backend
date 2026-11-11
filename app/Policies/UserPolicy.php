@@ -31,7 +31,7 @@ class UserPolicy
      */
     public function create(User $user): bool
     {
-        return false;
+        return $user->hasPermission('staff.manage');
     }
 
     /**
@@ -39,7 +39,22 @@ class UserPolicy
      */
     public function update(User $user, User $model): bool
     {
-        return false;
+        return $user->hasPermission('staff.manage');
+    }
+
+    public function manageAny(User $user): bool
+    {
+        return $user->hasPermission('staff.manage');
+    }
+
+    public function manage(User $user, User $model): bool
+    {
+        return $user->hasPermission('staff.manage');
+    }
+
+    public function issuePasswordReset(User $user, User $model): bool
+    {
+        return $user->hasPermission('staff.manage') && $user->hasPermission('staff.reset_password');
     }
 
     /**
