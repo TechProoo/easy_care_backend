@@ -12,6 +12,7 @@ use App\Models\Department;
 use App\Models\Role;
 use App\Models\User;
 use App\Services\StaffAdministration;
+use App\Services\IdempotentCommands;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\JsonResponse;
@@ -60,36 +61,44 @@ class StaffManagementController extends Controller
         return new StaffManagementResource($user->load(['department', 'roles']));
     }
 
-    public function store(StoreStaffRequest $request, StaffAdministration $staff): StaffManagementResource
+    public function store(Request $request, StaffAdministration $staff, IdempotentCommands $commands): JsonResponse
     {
-        try {
-            $user = $staff->create($request->user('web'), $request->validated());
-        } catch (UniqueConstraintViolationException) {
-            throw ValidationException::withMessages(['username' => ['A staff identifier is already in use. Reload and check the username, email and staff code.']]);
-        }
+        return $commands->run($request, function () use ($request, $staff): JsonResponse {
+            $data = app(StoreStaffRequest::class)->validated();
+            try {
+                $user = $staff->create($request->user('web'), $data);
+            } catch (UniqueConstraintViolationException) {
+                throw ValidationException::withMessages(['username' => ['A staff identifier is already in use. Reload and check the username, email and staff code.']]);
+            }
 
-        return new StaffManagementResource($user->load(['department', 'roles']));
+            return (new StaffManagementResource($user->load(['department', 'roles'])))->response()->setStatusCode(201);
+        });
     }
 
-    public function update(UpdateStaffRequest $request, User $user, StaffAdministration $staff): StaffManagementResource
+    public function update(Request $request, User $user, StaffAdministration $staff, IdempotentCommands $commands): JsonResponse
     {
-        try {
-            $user = $staff->update($request->user('web'), $user, $request->validated());
-        } catch (UniqueConstraintViolationException) {
-            throw ValidationException::withMessages(['staff_code' => ['A staff identifier is already in use. Reload and check the email and staff code.']]);
-        }
+        return $commands->run($request, function () use ($request, $user, $staff): JsonResponse {
+            $data = app(UpdateStaffRequest::class)->validated();
+            try {
+                $updated = $staff->update($request->user('web'), $user, $data);
+            } catch (UniqueConstraintViolationException) {
+                throw ValidationException::withMessages(['staff_code' => ['A staff identifier is already in use. Reload and check the email and staff code.']]);
+            }
 
-        return new StaffManagementResource($user->load(['department', 'roles']));
+            return (new StaffManagementResource($updated->load(['department', 'roles'])))->response()->setStatusCode(200);
+        });
     }
 
-    public function issueReset(IssueStaffResetRequest $request, User $user, StaffAdministration $staff): JsonResponse
+    public function issueReset(Request $request, User $user, StaffAdministration $staff, IdempotentCommands $commands): JsonResponse
     {
-        $reset = $staff->issueReset($request->user('web'), $user, $request->validated());
+        return $commands->run($request, function () use ($request, $user, $staff): JsonResponse {
+            $reset = $staff->issueReset($request->user('web'), $user, app(IssueStaffResetRequest::class)->validated());
 
-        return response()->json(['data' => [
-            'user' => new StaffManagementResource($reset['user']->load(['department', 'roles'])),
-            'reset_code' => $reset['token'],
-            'expires_at' => $reset['expires_at'],
-        ]], 201);
+            return response()->json(['data' => [
+                'user' => new StaffManagementResource($reset['user']->load(['department', 'roles'])),
+                'reset_code' => $reset['token'],
+                'expires_at' => $reset['expires_at'],
+            ]], 201);
+        });
     }
 }

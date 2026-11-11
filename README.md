@@ -30,6 +30,7 @@ The helper starts MySQL and the PHP development server in the background. After 
 .\dev.cmd artisan --version
 .\dev.cmd artisan migrate:status
 .\dev.cmd artisan test
+.\dev.cmd composer verify
 .\dev.cmd mysql
 ```
 
@@ -49,6 +50,8 @@ For a foreground server, run `stop` and then `.\dev.cmd serve`. Press Ctrl+C to 
 - Administrator-issued, one-use password reset codes and a trusted server-console recovery command.
 - One frontend identity source, server-backed profile displays and session boundaries that clear private caches across account/access changes and tabs.
 - Append-only staff/security audit records, a permission-protected API and a read-only `/admin/audit` screen with filters and pagination.
+- Owner-scoped private uploads/downloads, file metadata and checksum verification; `/admin/files` provides the staff library.
+- A read-only `files:verify` console command checks the private file/database recovery set.
 - Private `backend/.env` is configured with the generated local database password and application key.
 
 `vendor/` contains installed PHP packages. `composer.lock` records their exact versions. `.env` and the project-local tools/database files are excluded from Git.
@@ -63,7 +66,7 @@ From `backend`, create an account through private interactive prompts:
 
 Use your own username and password; no demonstration accounts or default passwords are created. The password is entered privately and is not a command-line argument. Run migrations and `db:seed` first. The chosen role must already exist in the seeded catalog. Omitting `--role` creates an account with no module access.
 
-The initial admin role can read the staff directory and authorization catalog, manage staff, issue password reset codes and review audit history. Other initial roles can read departments and their own directory entry. Department-wide staff access is opt-in. These permissions do not grant access to future patient records. Inspect a role with `.\dev.cmd artisan access:role doctor`; see the [authorization contract](docs/LOCAL_DEVELOPMENT.md#server-side-authorization) for grants and revocations. Rerunning the seeder preserves deliberate permission removals.
+The initial admin role can read the staff directory and authorization catalog, manage staff, issue password reset codes and review audit history and use their own private file library. Other initial roles can read departments and their own directory entry. Department-wide staff access is opt-in. These permissions do not grant access to future patient records. Inspect a role with `.\dev.cmd artisan access:role doctor`; see the [authorization contract](docs/LOCAL_DEVELOPMENT.md#server-side-authorization) for grants and revocations. Rerunning the seeder preserves deliberate permission removals.
 
 Start the backend with `dev.cmd start`, then run `npm run dev` in the existing frontend directory and open its printed URL. The frontend uses `/api/v1` through Vite's local proxy to port 8000. Staff without assigned roles see an access-pending page. Authorized staff manage accounts at `/admin/users`. New accounts receive an unknown random initial password; after verifying identity, issue a reset code so the staff member can choose their password at `/forgot-password`. Codes expire after 15 minutes. If the sole administrator needs recovery, run `.\dev.cmd artisan staff:recover their-username` interactively from the trusted server console. See the [staff administration and recovery contract](docs/LOCAL_DEVELOPMENT.md#staff-administration-and-recovery). Hospital approval of the identity-verification procedure remains a release requirement.
 
@@ -82,6 +85,8 @@ The helper uses the laptop-only runtimes in this workspace. Other developers sho
 
 See [local development notes](docs/LOCAL_DEVELOPMENT.md) for database setup, tests and the API contract.
 
+`composer verify` runs the complete SQLite and MySQL suites sequentially, using guarded test databases. See [reusable feature verification](docs/LOCAL_DEVELOPMENT.md#reusable-feature-verification) for shared test helpers, the API test recipe and browser checks to repeat as each module is added.
+
 
 ## Architecture and database proposal
 
@@ -92,3 +97,5 @@ See [local development notes](docs/LOCAL_DEVELOPMENT.md) for database setup, tes
 - [Frontend/database review](docs/architecture/Frontend_Database_Review.md)
 
 The architecture and frontend review are design documents dated 4 November 2026. The Laravel development foundation was installed on 6 November 2026. The full 85-table schema remains a proposal; application migrations currently implement the staff/role foundation alongside Laravel's runtime tables. Patient, clinical, inventory and financial tables will be added with their respective workflows.
+
+Transaction safeguards: staff creation/edits, recovery issuance and uploads now require a per-submission `Idempotency-Key`. Database changes, audit and command completion commit together; exact retries confirm an existing resource and stale versions remain rejected. See [transaction and retry rules](docs/LOCAL_DEVELOPMENT.md#transaction-and-retry-rules) for the header, outcomes, lock order and file-recovery limits.

@@ -23,6 +23,7 @@ class AuthorizationSeeder extends Seeder
                 config('authorization.baseline') => config('authorization.role_defaults'),
                 config('authorization.management_baseline') => config('authorization.management_role_defaults'),
                 config('authorization.audit_baseline') => config('authorization.audit_role_defaults'),
+                config('authorization.files_baseline') => config('authorization.files_role_defaults'),
             ];
 
             foreach ($baselines as $baseline => $roles) {

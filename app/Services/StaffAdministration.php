@@ -14,7 +14,7 @@ use Illuminate\Validation\ValidationException;
 
 class StaffAdministration
 {
-    public function __construct(private AuditTrail $audit) {}
+    public function __construct(private AuditTrail $audit, private WriteTransactions $transactions) {}
 
     /** @param array<string, mixed> $data */
     public function create(User $actor, array $data): User
@@ -225,11 +225,11 @@ class StaffAdministration
 
     private function locked(Closure $operation): mixed
     {
-        return DB::transaction(function () use ($operation): mixed {
+        return $this->transactions->run(function () use ($operation): mixed {
             $lock = Permission::query()->where('code', 'staff.manage')->lockForUpdate()->first();
             abort_if($lock === null, 503);
 
             return $operation();
-        }, 3);
+        });
     }
 }

@@ -91,10 +91,10 @@ class StaffRecoveryTest extends TestCase
 
     public function test_issuing_requires_its_permission_reauthentication_and_identity_verification(): void
     {
-        $this->actingAs($this->admin)->postJson('/api/v1/staff-management/'.$this->target->id.'/password-reset', [
+        $this->actingAs($this->admin)->postCommand('/api/v1/staff-management/'.$this->target->id.'/password-reset', [
             'version' => 1, 'current_password' => 'Incorrect-secret-123!', 'identity_verified' => true,
         ])->assertUnprocessable()->assertJsonValidationErrors('current_password');
-        $this->postJson('/api/v1/staff-management/'.$this->target->id.'/password-reset', [
+        $this->postCommand('/api/v1/staff-management/'.$this->target->id.'/password-reset', [
             'version' => 1, 'current_password' => 'Correct-secret-123!', 'identity_verified' => false,
         ])->assertUnprocessable()->assertJsonValidationErrors('identity_verified');
         $this->admin->roles()->sole()->permissions()->detach(Permission::where('code', 'staff.reset_password')->sole());
@@ -104,7 +104,7 @@ class StaffRecoveryTest extends TestCase
 
     public function test_codes_cannot_be_issued_for_self_or_disabled_staff(): void
     {
-        $this->actingAs($this->admin)->postJson('/api/v1/staff-management/'.$this->admin->id.'/password-reset', [
+        $this->actingAs($this->admin)->postCommand('/api/v1/staff-management/'.$this->admin->id.'/password-reset', [
             'version' => 1, 'current_password' => 'Correct-secret-123!', 'identity_verified' => true,
         ])->assertUnprocessable();
         $this->target->is_active = false;
@@ -164,7 +164,7 @@ class StaffRecoveryTest extends TestCase
 
     private function issue(int $version = 1): \Illuminate\Testing\TestResponse
     {
-        return $this->actingAs($this->admin)->postJson('/api/v1/staff-management/'.$this->target->id.'/password-reset', [
+        return $this->actingAs($this->admin)->postCommand('/api/v1/staff-management/'.$this->target->id.'/password-reset', [
             'version' => $version, 'current_password' => 'Correct-secret-123!', 'identity_verified' => true,
         ]);
     }

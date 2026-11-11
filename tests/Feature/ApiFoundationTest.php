@@ -138,10 +138,11 @@ class ApiFoundationTest extends TestCase
 
     public function test_cors_preflight_does_not_require_login(): void
     {
-        $this->options('/api/v1/departments', [], [
-            'Origin' => 'http://localhost:5173', 'Access-Control-Request-Method' => 'GET',
-            'Access-Control-Request-Headers' => 'Content-Type',
+        $response = $this->options('/api/v1/files', [], [
+            'Origin' => 'http://localhost:5173', 'Access-Control-Request-Method' => 'POST',
+            'Access-Control-Request-Headers' => 'Content-Type, X-CSRF-TOKEN, Idempotency-Key',
         ])->assertNoContent()->assertHeader('Access-Control-Allow-Origin', 'http://localhost:5173');
+        $this->assertStringContainsString('idempotency-key', strtolower($response->headers->get('Access-Control-Allow-Headers')));
     }
 
     public function test_unlisted_origins_do_not_receive_cors_access(): void

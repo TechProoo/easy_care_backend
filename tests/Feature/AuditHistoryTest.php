@@ -30,8 +30,8 @@ class AuditHistoryTest extends TestCase
 
     public function test_staff_changes_capture_actor_subject_and_access_changes_without_copying_personal_values(): void
     {
-        $admin = $this->staff('admin');
-        $created = $this->actingAs($admin)->postJson('/api/v1/staff-management', $this->data())
+        $admin = $this->createStaffWithRole('admin');
+        $created = $this->actingAs($admin)->postCommand('/api/v1/staff-management', $this->data())
             ->assertCreated()->json('data.id');
         $event = DB::table('audit_events')->where('action', 'staff.created')->sole();
         $this->assertSame($admin->id, (int) $event->actor_id);
@@ -42,7 +42,7 @@ class AuditHistoryTest extends TestCase
         $this->assertNotEmpty($event->occurred_at);
         $this->assertSame(['doctor'], json_decode($event->safe_summary, true)['role_codes']);
 
-        $this->patchJson('/api/v1/staff-management/'.$created, array_replace(collect($this->data())->except('username')->all(), [
+        $this->patchCommand('/api/v1/staff-management/'.$created, array_replace(collect($this->data())->except('username')->all(), [
             'version' => 1, 'first_name' => 'Changed Personal Name', 'role_codes' => ['nurse'], 'is_active' => false,
         ]))->assertOk();
         $summary = json_decode(DB::table('audit_events')->where('action', 'staff.updated')->sole()->safe_summary, true);
@@ -62,9 +62,9 @@ class AuditHistoryTest extends TestCase
 
     public function test_recovery_issuance_and_password_change_have_separate_events_without_codes_or_passwords(): void
     {
-        $admin = $this->staff('admin');
-        $target = $this->staff('doctor');
-        $code = $this->actingAs($admin)->postJson('/api/v1/staff-management/'.$target->id.'/password-reset', [
+        $admin = $this->createStaffWithRole('admin');
+        $target = $this->createStaffWithRole('doctor');
+        $code = $this->actingAs($admin)->postCommand('/api/v1/staff-management/'.$target->id.'/password-reset', [
             'current_password' => 'Correct-secret-123!', 'version' => 1, 'identity_verified' => true,
         ])->assertCreated()->json('data.reset_code');
         $this->postJson('/api/v1/auth/password/reset', [
@@ -85,8 +85,8 @@ class AuditHistoryTest extends TestCase
 
     public function test_failed_authorization_validation_conflicts_and_recovery_are_audited_without_request_input(): void
     {
-        $doctor = $this->staff('doctor');
-        $this->actingAs($doctor)->postJson('/api/v1/staff-management', [
+        $doctor = $this->createStaffWithRole('doctor');
+        $this->actingAs($doctor)->postCommand('/api/v1/staff-management', [
             'password' => 'Submitted-private-secret',
         ])->assertForbidden();
         $denied = DB::table('audit_events')->where('action', 'staff.created')->sole();
@@ -94,10 +94,10 @@ class AuditHistoryTest extends TestCase
         $this->assertSame($doctor->id, (int) $denied->actor_id);
         $this->assertSame('denied', $denied->outcome);
 
-        $admin = $this->staff('admin');
+        $admin = $this->createStaffWithRole('admin');
         $this->flushSession();
-        $this->actingAs($admin)->postJson('/api/v1/staff-management', [])->assertUnprocessable();
-        $this->patchJson('/api/v1/staff-management/'.$doctor->id, collect($this->data())->except('username')->all() + ['version' => 99])->assertConflict();
+        $this->actingAs($admin)->postCommand('/api/v1/staff-management', [])->assertUnprocessable();
+        $this->patchCommand('/api/v1/staff-management/'.$doctor->id, collect($this->data())->except('username')->all() + ['version' => 99])->assertConflict();
         $conflict = DB::table('audit_events')->where('action', 'staff.updated')->sole();
         $this->assertSame($doctor->id, (int) $conflict->subject_id);
         $this->assertSame(409, (int) $conflict->http_status);
@@ -114,7 +114,7 @@ class AuditHistoryTest extends TestCase
 
     public function test_login_success_failure_and_logout_are_recorded_without_submitted_identity(): void
     {
-        $user = $this->staff('doctor');
+        $user = $this->createStaffWithRole('doctor');
         $this->postJson('/api/v1/auth/login', [
             'email_or_username' => 'unknown.private@example.test', 'password' => 'Wrong-private-secret',
         ])->assertUnprocessable();
@@ -150,14 +150,14 @@ class AuditHistoryTest extends TestCase
     public function test_audit_read_requires_its_own_permission_and_respects_revocations_and_inactive_accounts(): void
     {
         $this->getJson('/api/v1/audit-events')->assertUnauthorized();
-        $admin = $this->staff('admin');
+        $admin = $this->createStaffWithRole('admin');
         $this->actingAs($admin)->getJson('/api/v1/audit-events')->assertOk()
             ->assertHeader('Cache-Control', 'no-store, private');
         Role::where('code', 'admin')->sole()->permissions()->detach(Permission::where('code', 'audit.view')->sole());
         $this->getJson('/api/v1/audit-events')->assertForbidden();
         $this->seed(DatabaseSeeder::class);
         $this->getJson('/api/v1/audit-events')->assertForbidden();
-        $doctor = $this->staff('doctor');
+        $doctor = $this->createStaffWithRole('doctor');
         $this->flushSession();
         $this->actingAs($doctor)->getJson('/api/v1/audit-events')->assertForbidden();
         Role::where('code', 'doctor')->sole()->permissions()->attach(Permission::where('code', 'audit.view')->sole());
@@ -169,7 +169,7 @@ class AuditHistoryTest extends TestCase
 
     public function test_audit_search_is_paginated_filtered_and_utc_dated_with_stable_order(): void
     {
-        $admin = $this->staff('admin');
+        $admin = $this->createStaffWithRole('admin');
         $audit = app(AuditTrail::class);
         $this->travelTo(now()->setDate(2026, 11, 10)->startOfDay());
         $audit->record('staff.updated', $admin->id, 'staff', 23, ['version' => 2]);
@@ -193,7 +193,7 @@ class AuditHistoryTest extends TestCase
 
     public function test_pagination_keeps_a_fixed_history_boundary_while_reads_and_new_actions_are_logged(): void
     {
-        $admin = $this->staff('admin');
+        $admin = $this->createStaffWithRole('admin');
         $audit = app(AuditTrail::class);
         for ($event = 0; $event < 3; $event++) {
             $audit->record('auth.login', $admin->id, 'staff', $admin->id);
@@ -211,7 +211,7 @@ class AuditHistoryTest extends TestCase
 
     public function test_audit_filter_validation_and_read_only_routes(): void
     {
-        $admin = $this->staff('admin');
+        $admin = $this->createStaffWithRole('admin');
         $this->actingAs($admin)->getJson('/api/v1/audit-events?action=anything&outcome=other&channel=x&per_page=101&page=0&from=bad&subject_id=1')
             ->assertUnprocessable()->assertJsonValidationErrors(['action', 'outcome', 'channel', 'per_page', 'page', 'from', 'subject_type']);
         $this->getJson('/api/v1/audit-events?from=2026-11-11&to=2026-11-10')
@@ -247,7 +247,7 @@ class AuditHistoryTest extends TestCase
 
     public function test_audit_records_survive_staff_deletion_with_the_original_numeric_references(): void
     {
-        $user = $this->staff('doctor');
+        $user = $this->createStaffWithRole('doctor');
         app(AuditTrail::class)->record('auth.login', $user->id, 'staff', $user->id);
         $id = $user->id;
         $user->delete();
@@ -275,8 +275,8 @@ class AuditHistoryTest extends TestCase
     #[DataProvider('staffOperations')]
     public function test_staff_operations_roll_back_when_their_audit_write_fails(string $operation): void
     {
-        $admin = $this->staff('admin');
-        $target = $this->staff('doctor');
+        $admin = $this->createStaffWithRole('admin');
+        $target = $this->createStaffWithRole('doctor');
         $service = app(StaffAdministration::class);
         $reset = $service->issueConsoleReset($target);
         $before = $target->fresh()->getAttributes();
@@ -374,7 +374,7 @@ class AuditHistoryTest extends TestCase
 
     public function test_failed_audit_on_login_cannot_leave_an_authenticated_session(): void
     {
-        $user = $this->staff('doctor');
+        $user = $this->createStaffWithRole('doctor');
         $this->mock(AuditTrail::class)->shouldReceive('record')->andThrow(new RuntimeException('Audit unavailable'));
         $this->withoutExceptionHandling();
         try {
@@ -384,14 +384,6 @@ class AuditHistoryTest extends TestCase
             $this->assertFalse(Auth::guard('web')->check());
             $this->assertNull($user->fresh()->last_login_at);
         }
-    }
-
-    private function staff(string $role): User
-    {
-        $user = User::factory()->create(['password' => 'Correct-secret-123!']);
-        $user->roles()->attach(Role::where('code', $role)->sole());
-
-        return $user;
     }
 
     private function data(): array

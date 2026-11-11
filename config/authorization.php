@@ -4,8 +4,11 @@ return [
     'baseline' => 'staff-access-v1',
     'management_baseline' => 'staff-administration-v1',
     'audit_baseline' => 'audit-history-v1',
+    'files_baseline' => 'protected-files-v1',
     'reset_minutes' => 15,
     'permissions' => [
+        'files.upload' => 'Upload private files',
+        'files.view_own' => 'View and download own private files',
         'audit.view' => 'Review staff and security audit history',
         'reference-data.view' => 'View reference data',
         'staff.view_self' => 'View own staff directory entry',
@@ -23,6 +26,9 @@ return [
         'pharmacy' => ['reference-data.view', 'staff.view_self'],
         'hmo' => ['reference-data.view', 'staff.view_self'],
         'diagnostics-and-radiologist' => ['reference-data.view', 'staff.view_self'],
+    ],
+    'files_role_defaults' => [
+        'admin' => ['files.upload', 'files.view_own'],
     ],
     'audit_role_defaults' => [
         'admin' => ['audit.view'],

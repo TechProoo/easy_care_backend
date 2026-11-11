@@ -11,7 +11,8 @@ class AuditTrail
     public const ACTIONS = [
         'staff.created', 'staff.updated', 'staff.recovery_issued', 'staff.password_reset',
         'role.permission_granted', 'role.permission_revoked',
-        'auth.login', 'auth.logout', 'audit.viewed',
+        'auth.login', 'auth.logout', 'audit.viewed', 'command.replayed',
+        'file.uploaded', 'file.listed', 'file.viewed', 'file.download_authorized', 'file.integrity_checked',
     ];
 
     /** @param array<string, mixed> $summary */
@@ -28,7 +29,7 @@ class AuditTrail
         if (! in_array($action, self::ACTIONS, true)
             || ! in_array($outcome, ['succeeded', 'denied', 'failed'], true)
             || ! in_array($channel, ['http', 'console'], true)
-            || ! in_array($subjectType, ['staff', 'role', 'audit'], true)) {
+            || ! in_array($subjectType, ['staff', 'role', 'audit', 'file'], true)) {
             throw new InvalidArgumentException('Unknown audit event classification.');
         }
 
@@ -63,12 +64,16 @@ class AuditTrail
                 'department_id', 'previous_is_active', 'is_active', 'version', 'sessions_revoked'],
             'staff.recovery_issued', 'staff.password_reset' => ['version'],
             'role.permission_granted', 'role.permission_revoked' => ['permission_code', 'changed'],
+            'file.uploaded' => ['byte_size', 'mime_type'],
+            'file.integrity_checked' => ['checked', 'missing', 'corrupt', 'orphaned'],
             default => [],
         };
 
         foreach ($summary as $key => $value) {
             $valid = in_array($key, $allowed, true) && match ($key) {
                 'department_id', 'previous_department_id' => $value === null || (is_int($value) && $value > 0),
+                'byte_size', 'checked', 'missing', 'corrupt', 'orphaned' => is_int($value) && $value >= 0,
+                'mime_type' => in_array($value, ['application/pdf', 'image/jpeg', 'image/png'], true),
                 'version' => is_int($value) && $value > 0,
                 'is_active', 'previous_is_active', 'sessions_revoked', 'changed' => is_bool($value),
                 'permission_code' => is_string($value) && array_key_exists($value, config('authorization.permissions')),

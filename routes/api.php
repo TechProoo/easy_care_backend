@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\V1\AccessControlController;
 use App\Http\Controllers\Api\V1\AuditHistoryController;
 use App\Http\Controllers\Api\V1\DepartmentController;
 use App\Http\Controllers\Api\V1\HealthController;
+use App\Http\Controllers\Api\V1\ProtectedFileController;
 use App\Http\Controllers\Api\V1\StaffDirectoryController;
 use App\Http\Controllers\Api\V1\StaffManagementController;
 use App\Http\Controllers\Api\V1\StaffRecoveryController;
@@ -25,6 +26,15 @@ Route::prefix('v1')->name('api.v1.')->group(function (): void {
             ->middleware('throttle:staff-recovery')->name('auth.password.reset');
 
         Route::middleware(['auth:web', EnsureStaffIsActive::class, 'auth.session'])->group(function (): void {
+            Route::middleware('can:files.view_own')->group(function (): void {
+                Route::get('files', [ProtectedFileController::class, 'index'])->name('files.index');
+                Route::post('files', [ProtectedFileController::class, 'store'])
+                    ->middleware(['can:files.upload', 'throttle:protected-files-upload'])->name('files.store');
+                Route::get('files/{file}', [ProtectedFileController::class, 'show'])
+                    ->where('file', '[1-9][0-9]{0,17}')->name('files.show');
+                Route::get('files/{file}/download', [ProtectedFileController::class, 'download'])
+                    ->where('file', '[1-9][0-9]{0,17}')->name('files.download');
+            });
             Route::get('audit-events', AuditHistoryController::class)
                 ->middleware('can:audit.view')->name('audit-events.index');
             Route::get('auth/me', [StaffSessionController::class, 'show'])->name('auth.me');

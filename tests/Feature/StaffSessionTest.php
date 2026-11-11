@@ -289,6 +289,9 @@ class StaffSessionTest extends TestCase
 
     private function send(string $method, string $uri, array $data = [], array $headers = []): TestResponse
     {
+        if (in_array($method, ['POST', 'PATCH'], true) && str_starts_with($uri, '/api/v1/staff-management')) {
+            $headers['Idempotency-Key'] = (string) \Illuminate\Support\Str::uuid();
+        }
         Auth::forgetGuards();
         $this->app->forgetInstance('auth.driver');
         $this->app['session']->forgetDrivers();

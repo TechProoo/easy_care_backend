@@ -2,6 +2,7 @@
 
 namespace App\Http\Responses;
 
+use App\Exceptions\WriteConflict;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
@@ -24,6 +25,7 @@ class ApiErrorResponse
             404 => ['not_found', 'The requested resource was not found.'],
             405 => ['method_not_allowed', 'This HTTP method is not supported for this resource.'],
             409 => ['conflict', 'The request conflicts with the current record state.'],
+            413 => ['payload_too_large', 'The upload is larger than the server allows.'],
             415 => ['unsupported_media_type', 'The request content type is not supported.'],
             419 => ['session_expired', 'Your session has expired. Please sign in again.'],
             422 => ['validation_failed', 'The submitted data is invalid.'],
@@ -33,6 +35,11 @@ class ApiErrorResponse
                 ? ['server_error', 'An unexpected error occurred.']
                 : ['request_failed', 'The request could not be completed.'],
         };
+
+        if ($exception instanceof WriteConflict) {
+            $code = $exception->errorCode;
+            $message = $exception->getMessage();
+        }
 
         $payload = ['message' => $message, 'code' => $code];
 
