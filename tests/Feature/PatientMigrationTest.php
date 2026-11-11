@@ -19,12 +19,15 @@ class PatientMigrationTest extends TestCase
         $this->seed(DatabaseSeeder::class);
         $staff = User::factory()->create();
         $migration = require database_path('migrations/2026_11_11_171342_create_patient_foundation_tables.php');
-        $this->assertTablesUnchanged(['users', 'roles', 'permissions', 'role_permissions', 'files', 'audit_events'], function () use ($migration): void {
+        $lookup = require database_path('migrations/2026_11_11_173615_add_patient_lookup_indexes.php');
+        $this->assertTablesUnchanged(['users', 'roles', 'permissions', 'role_permissions', 'files', 'audit_events'], function () use ($migration, $lookup): void {
+            $lookup->down();
             $migration->down();
             foreach (['patient_categories', 'patients', 'patient_identifiers', 'patient_contacts', 'patient_relationships'] as $table) {
                 $this->assertFalse(Schema::hasTable($table));
             }
             $migration->up();
+            $lookup->up();
             $this->seed(DatabaseSeeder::class);
         });
         $patient = Patient::factory()->create(['created_by' => $staff->id]);

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -27,6 +28,12 @@ class Patient extends Model
     public function category(): BelongsTo
     {
         return $this->belongsTo(PatientCategory::class, 'category_id');
+    }
+
+    public function scopeVisibleTo(Builder $query, User $viewer): Builder
+    {
+        return $query->where('patients.access_status', 'active')
+            ->when(! $viewer->hasPermission('patients.view'), fn (Builder $query): Builder => $query->whereRaw('1 = 0'));
     }
 
     public function createdBy(): BelongsTo

@@ -29,6 +29,11 @@ class AuditSecurityEvents
             'api.v1.files.index' => 'file.listed',
             'api.v1.files.show' => 'file.viewed',
             'api.v1.files.download' => 'file.download_authorized',
+            'api.v1.patients.store' => 'patient.created',
+            'api.v1.patients.update' => 'patient.updated',
+            'api.v1.patients.index' => 'patient.listed',
+            'api.v1.patients.show' => 'patient.viewed',
+            'api.v1.patients.duplicates' => 'patient.duplicates_checked',
             default => null,
         };
 
@@ -36,12 +41,15 @@ class AuditSecurityEvents
             $target = $request->route('user');
             $fileId = $request->route('file');
             $isFile = str_starts_with($action, 'file.');
+            $isPatient = str_starts_with($action, 'patient.');
+            $patientId = $request->route('patient');
             $this->audit->record(
                 action: $action,
                 actorId: $request->user('web')?->id,
-                subjectType: $isFile ? 'file' : ($action === 'audit.viewed' ? 'audit' : 'staff'),
-                subjectId: $isFile && is_string($fileId) && ctype_digit($fileId) ? (int) $fileId
-                    : ($target instanceof User ? $target->id : null),
+                subjectType: $isPatient ? 'patient' : ($isFile ? 'file' : ($action === 'audit.viewed' ? 'audit' : 'staff')),
+                subjectId: $isPatient && is_string($patientId) && ctype_digit($patientId) ? (int) $patientId
+                    : ($isFile && is_string($fileId) && ctype_digit($fileId) ? (int) $fileId
+                    : ($target instanceof User ? $target->id : null)),
                 outcome: $status >= 500 ? 'failed' : 'denied',
                 httpStatus: $status,
             );

@@ -3,8 +3,10 @@
 namespace App\Providers;
 
 use App\Models\Department;
+use App\Models\Patient;
 use App\Models\User;
 use App\Policies\DepartmentPolicy;
+use App\Policies\PatientPolicy;
 use App\Policies\UserPolicy;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -33,6 +35,10 @@ class AppServiceProvider extends ServiceProvider
 
         Gate::policy(User::class, UserPolicy::class);
         Gate::policy(Department::class, DepartmentPolicy::class);
+        Gate::policy(Patient::class, PatientPolicy::class);
+
+        RateLimiter::for('patient-writes', fn (Request $request): Limit => Limit::perMinute(30)
+            ->by('patient-writes:'.$request->user('web')?->id.'|'.$request->ip()));
 
         RateLimiter::for('api', fn (Request $request): Limit => Limit::perMinute(120)
             ->by($request->ip()));

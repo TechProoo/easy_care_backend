@@ -13,6 +13,7 @@ class AuditTrail
         'role.permission_granted', 'role.permission_revoked',
         'auth.login', 'auth.logout', 'audit.viewed', 'command.replayed',
         'file.uploaded', 'file.listed', 'file.viewed', 'file.download_authorized', 'file.integrity_checked',
+        'patient.created', 'patient.updated', 'patient.listed', 'patient.viewed', 'patient.duplicates_checked',
     ];
 
     /** @param array<string, mixed> $summary */
@@ -29,7 +30,7 @@ class AuditTrail
         if (! in_array($action, self::ACTIONS, true)
             || ! in_array($outcome, ['succeeded', 'denied', 'failed'], true)
             || ! in_array($channel, ['http', 'console'], true)
-            || ! in_array($subjectType, ['staff', 'role', 'audit', 'file'], true)) {
+            || ! in_array($subjectType, ['staff', 'role', 'audit', 'file', 'patient'], true)) {
             throw new InvalidArgumentException('Unknown audit event classification.');
         }
 
@@ -66,23 +67,27 @@ class AuditTrail
             'role.permission_granted', 'role.permission_revoked' => ['permission_code', 'changed'],
             'file.uploaded' => ['byte_size', 'mime_type'],
             'file.integrity_checked' => ['checked', 'missing', 'corrupt', 'orphaned'],
+            'patient.created' => ['version', 'category_id', 'contact_count', 'duplicates_acknowledged'],
+            'patient.updated' => ['version', 'changed_fields', 'contacts_changed'],
             default => [],
         };
 
         foreach ($summary as $key => $value) {
             $valid = in_array($key, $allowed, true) && match ($key) {
                 'department_id', 'previous_department_id' => $value === null || (is_int($value) && $value > 0),
-                'byte_size', 'checked', 'missing', 'corrupt', 'orphaned' => is_int($value) && $value >= 0,
+                'category_id' => is_int($value) && $value > 0,
+                'byte_size', 'checked', 'missing', 'corrupt', 'orphaned', 'contact_count' => is_int($value) && $value >= 0,
                 'mime_type' => in_array($value, ['application/pdf', 'image/jpeg', 'image/png'], true),
                 'version' => is_int($value) && $value > 0,
-                'is_active', 'previous_is_active', 'sessions_revoked', 'changed' => is_bool($value),
+                'is_active', 'previous_is_active', 'sessions_revoked', 'changed', 'contacts_changed', 'duplicates_acknowledged' => is_bool($value),
                 'permission_code' => is_string($value) && array_key_exists($value, config('authorization.permissions')),
                 'role_codes', 'previous_role_codes' => is_array($value) && array_is_list($value)
                     && count($value) <= 100 && collect($value)->every(fn ($code): bool => is_string($code)
                         && preg_match('/^[a-z0-9][a-z0-9._-]{0,63}$/D', $code) === 1),
                 'changed_fields' => is_array($value) && array_is_list($value)
                     && collect($value)->every(fn ($field): bool => is_string($field) && in_array($field,
-                        ['first_name', 'last_name', 'middle_name', 'email', 'staff_code', 'department_id', 'is_active', 'role_codes'], true)),
+                        $action === 'patient.updated' ? [...PatientRegistry::DEMOGRAPHICS, 'contacts']
+                            : ['first_name', 'last_name', 'middle_name', 'email', 'staff_code', 'department_id', 'is_active', 'role_codes'], true)),
                 default => false,
             };
             if (! $valid) {

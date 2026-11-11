@@ -4,8 +4,10 @@ namespace App\Services;
 
 use App\Exceptions\WriteConflict;
 use App\Http\Requests\ProtectedFileRules;
+use App\Http\Resources\PatientResource;
 use App\Http\Resources\ProtectedFileResource;
 use App\Http\Resources\StaffManagementResource;
+use App\Models\Patient;
 use App\Models\Permission;
 use App\Models\User;
 use Closure;
@@ -17,14 +19,15 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 use LogicException;
-use stdClass;
 use Throwable;
+use stdClass;
 
 class IdempotentCommands
 {
     private const ROUTES = [
         'api.v1.staff-management.store', 'api.v1.staff-management.update',
         'api.v1.staff-management.password-reset', 'api.v1.files.store',
+        'api.v1.patients.store', 'api.v1.patients.update',
     ];
 
     public function __construct(private WriteTransactions $transactions, private ProtectedFiles $files, private AuditTrail $audit) {}
@@ -41,15 +44,20 @@ class IdempotentCommands
             throw ValidationException::withMessages(['idempotency_key' => ['Supply an Idempotency-Key header of 16 to 128 letters, digits, dots, colons, underscores or hyphens.']]);
         }
         $fileWrite = $route === 'api.v1.files.store';
+        $patientWrite = str_starts_with($route, 'api.v1.patients.');
         $hash = $this->digest(json_encode($this->canonical([
-            'target' => $request->route('user')?->id, 'data' => $request->except('current_password'),
+            'target' => $patientWrite ? $request->route('patient') : $request->route('user')?->id,
+            'data' => $request->except('current_password'),
         ]), JSON_THROW_ON_ERROR));
         $keyHash = hash('sha256', $key);
 
         try {
-            return $this->transactions->run(function () use ($request, $operation, $route, $fileWrite, $hash, $keyHash): JsonResponse {
+            return $this->transactions->run(function () use ($request, $operation, $route, $fileWrite, $patientWrite, $hash, $keyHash): JsonResponse {
                 // Current staff writes share this lock with console grants and recovery.
                 abort_if(Permission::query()->where('code', 'staff.manage')->lockForUpdate()->first() === null, 503);
+                if ($patientWrite) {
+                    abort_if(Permission::query()->where('code', 'patients.create')->lockForUpdate()->first() === null, 503);
+                }
                 $requestActor = $request->user('web');
                 abort_unless($requestActor instanceof User, 401);
                 $actor = User::query()->lockForUpdate()->findOrFail($requestActor->id);
@@ -71,7 +79,7 @@ class IdempotentCommands
                 $resource = $route === 'api.v1.staff-management.password-reset' ? $body['data']['user'] : $body['data'];
                 DB::table('idempotency_requests')->where('id', $id)->update([
                     'status' => 'completed', 'response_code' => $response->getStatusCode(),
-                    'resource_type' => $fileWrite ? 'file' : 'staff', 'resource_id' => $resource['id'],
+                    'resource_type' => $patientWrite ? 'patient' : ($fileWrite ? 'file' : 'staff'), 'resource_id' => $resource['id'],
                     'resource_version' => $resource['version'] ?? null, 'updated_at' => now('UTC'),
                 ]);
                 $response->headers->set('Idempotency-Replayed', 'false');
@@ -91,6 +99,18 @@ class IdempotentCommands
     private function authorize(Request $request, User $actor, bool $fileWrite): void
     {
         abort_unless($actor->is_active, 403);
+        if (str_starts_with($request->route()->getName(), 'api.v1.patients.')) {
+            Gate::forUser($actor)->authorize('patients.view');
+            $create = $request->route()->getName() === 'api.v1.patients.store';
+            Gate::forUser($actor)->authorize($create ? 'patients.create' : 'patients.update');
+            if (! $create) {
+                $patient = Patient::query()->visibleTo($actor)->lockForUpdate()->findOrFail($request->route('patient'));
+                Gate::forUser($actor)->authorize('update', $patient);
+                $request->attributes->set('patient_record', $patient);
+            }
+
+            return;
+        }
         if ($fileWrite) {
             Gate::forUser($actor)->authorize('files.view_own');
             Gate::forUser($actor)->authorize('files.upload');
@@ -123,7 +143,14 @@ class IdempotentCommands
         if ($request->route()->getName() === 'api.v1.staff-management.password-reset') {
             throw new WriteConflict('idempotency_completed', 'The recovery code was already issued and cannot be shown again. Reload the staff record and verify identity before issuing a replacement.');
         }
-        if ($fileWrite) {
+        $patientWrite = str_starts_with($request->route()->getName(), 'api.v1.patients.');
+        if ($patientWrite) {
+            $patient = Patient::query()->visibleTo($actor)->lockForUpdate()->findOrFail($record->resource_id);
+            if ($patient->version !== (int) $record->resource_version) {
+                throw new WriteConflict('idempotency_outdated', 'The original save completed, but this patient record has changed again. Reload its latest record.');
+            }
+            $response = (new PatientResource($patient->load(['category', 'contacts', 'identifiers'])))->response();
+        } elseif ($fileWrite) {
             $file = $this->files->owned($actor, (int) $record->resource_id);
             $response = (new ProtectedFileResource($file))->response();
         } else {
@@ -134,7 +161,7 @@ class IdempotentCommands
             }
             $response = (new StaffManagementResource($user->load(['department', 'roles'])))->response();
         }
-        $this->audit->record('command.replayed', $actor->id, $fileWrite ? 'file' : 'staff', (int) $record->resource_id);
+        $this->audit->record('command.replayed', $actor->id, $patientWrite ? 'patient' : ($fileWrite ? 'file' : 'staff'), (int) $record->resource_id);
         $response->setStatusCode(200);
         $response->headers->set('Idempotency-Replayed', 'true');
 

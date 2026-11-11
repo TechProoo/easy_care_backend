@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\V1\AccessControlController;
 use App\Http\Controllers\Api\V1\AuditHistoryController;
 use App\Http\Controllers\Api\V1\DepartmentController;
 use App\Http\Controllers\Api\V1\HealthController;
+use App\Http\Controllers\Api\V1\PatientController;
 use App\Http\Controllers\Api\V1\ProtectedFileController;
 use App\Http\Controllers\Api\V1\StaffDirectoryController;
 use App\Http\Controllers\Api\V1\StaffManagementController;
@@ -26,6 +27,18 @@ Route::prefix('v1')->name('api.v1.')->group(function (): void {
             ->middleware('throttle:staff-recovery')->name('auth.password.reset');
 
         Route::middleware(['auth:web', EnsureStaffIsActive::class, 'auth.session'])->group(function (): void {
+            Route::middleware('can:patients.view')->group(function (): void {
+                Route::get('patients/options', [PatientController::class, 'options'])->name('patients.options');
+                Route::post('patients/duplicate-check', [PatientController::class, 'duplicates'])->name('patients.duplicates');
+                Route::get('patients', [PatientController::class, 'index'])->name('patients.index');
+                Route::get('patients/{patient}', [PatientController::class, 'show'])
+                    ->where('patient', '[1-9][0-9]{0,17}')->name('patients.show');
+                Route::post('patients', [PatientController::class, 'store'])
+                    ->middleware(['can:patients.create', 'throttle:patient-writes'])->name('patients.store');
+                Route::patch('patients/{patient}', [PatientController::class, 'update'])
+                    ->where('patient', '[1-9][0-9]{0,17}')
+                    ->middleware(['can:patients.update', 'throttle:patient-writes'])->name('patients.update');
+            });
             Route::middleware('can:files.view_own')->group(function (): void {
                 Route::get('files', [ProtectedFileController::class, 'index'])->name('files.index');
                 Route::post('files', [ProtectedFileController::class, 'store'])

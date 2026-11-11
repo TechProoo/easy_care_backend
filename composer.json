@@ -68,7 +68,10 @@
             "Illuminate\\Foundation\\ComposerScripts::prePackageUninstall"
         ],
         "test:sqlite": "@php vendor/phpunit/phpunit/phpunit --configuration phpunit.xml --no-progress",
-        "test:mysql": "@php vendor/phpunit/phpunit/phpunit --configuration phpunit.mysql.xml --no-progress",
+        "test:mysql": [
+            "Composer\\Config::disableProcessTimeout",
+            "@php vendor/phpunit/phpunit/phpunit --configuration phpunit.mysql.xml --no-progress"
+        ],
         "verify": [
             "@test:sqlite",
             "@test:mysql"

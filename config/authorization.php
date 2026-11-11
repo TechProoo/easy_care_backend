@@ -7,6 +7,9 @@ return [
     'files_baseline' => 'protected-files-v1',
     'reset_minutes' => 15,
     'permissions' => [
+        'patients.view' => 'View active patient records and search the registry',
+        'patients.create' => 'Register patients after reviewing possible duplicates',
+        'patients.update' => 'Edit active patient demographics and contacts',
         'files.upload' => 'Upload private files',
         'files.view_own' => 'View and download own private files',
         'audit.view' => 'Review staff and security audit history',

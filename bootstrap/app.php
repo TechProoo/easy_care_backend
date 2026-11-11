@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Responses\ApiErrorResponse;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -19,6 +20,15 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->redirectGuestsTo(fn (Request $request): ?string => $request->is('api', 'api/*') ? null : '/');
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        $exceptions->report(function (QueryException $exception): ?bool {
+            if (request()->is('api/v1/patients', 'api/v1/patients/*')) {
+                logger()->error('A patient database operation failed.');
+
+                return false;
+            }
+
+            return null;
+        });
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request): bool => $request->is('api', 'api/*') || $request->expectsJson(),
         );
