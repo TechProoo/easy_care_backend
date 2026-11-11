@@ -1,6 +1,6 @@
 # EasyCare backend
 
-Laravel PHP backend for the EasyCare React application. This is the initial development foundation; patient APIs, staff authentication and hospital domain tables will be implemented next.
+Laravel PHP backend for the EasyCare React application. The database/API foundation includes staff organization and role relationships, versioned endpoints, validation and isolated database tests. Staff login and patient workflows are the next implementation stages.
 
 ## Local Windows setup
 
@@ -40,6 +40,9 @@ For a foreground server, run `stop` and then `.\dev.cmd serve`. Press Ctrl+C to 
 - PHP 8.4, Composer 2, Laravel 13 and MySQL 8.4 LTS.
 - Local MySQL database: `easycare_dev`, accessible to a dedicated database-scoped application account.
 - Laravel starter migrations: users/password resets/sessions, cache/locks and jobs/failed jobs.
+- Staff foundation migrations: departments, staff identity fields, roles, permissions and their assignment tables.
+- Versioned API readiness endpoint: `GET /api/v1/health`.
+- Protected department list: `GET /api/v1/departments`, with validation, filtering, sorting and pagination. Login endpoints are not implemented yet.
 - Private `backend/.env` is configured with the generated local database password and application key.
 
 `vendor/` contains installed PHP packages. `composer.lock` records their exact versions. `.env` and the project-local tools/database files are excluded from Git.
@@ -57,14 +60,15 @@ For a foreground server, run `stop` and then `.\dev.cmd serve`. Press Ctrl+C to 
 
 The helper uses the laptop-only runtimes in this workspace. Other developers should install PHP/Composer/MySQL on their own machines, copy `.env.example` to `.env`, configure their development database, run `composer install`, generate an app key and run migrations. This setup is not the hospital's production hosting configuration.
 
-See [local development notes](docs/LOCAL_DEVELOPMENT.md) for folder locations, logs and additional explanations.
+See [local development notes](docs/LOCAL_DEVELOPMENT.md) for database setup, tests and the API contract.
 
 
 ## Architecture and database proposal
 
+- [Ordered backend build checklist](docs/BACKEND_BUILD_CHECKLIST.md)
 - [Backend architecture PDF](docs/architecture/EasyCare_Architecture_Reviewed_v1.1.pdf)
 - [Complete database dictionary](docs/architecture/Database_Dictionary_v1.1.md)
 - [Proposed MySQL schema](docs/architecture/schema.mysql.sql)
 - [Frontend/database review](docs/architecture/Frontend_Database_Review.md)
 
-The architecture and frontend review are design documents dated 4 November 2026. The Laravel development foundation was installed on 6 November 2026. The proposed 85 domain tables are not yet implemented as application migrations; the running database currently has Laravel's starter tables.
+The architecture and frontend review are design documents dated 4 November 2026. The Laravel development foundation was installed on 6 November 2026. The full 85-table schema remains a proposal; application migrations currently implement the staff/role foundation alongside Laravel's runtime tables. Patient, clinical, inventory and financial tables will be added with their respective workflows.
