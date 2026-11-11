@@ -62,6 +62,8 @@ class StaffSessionTest extends TestCase
         $this->assertNotSame($oldToken, $this->csrf);
         $this->assertDatabaseMissing('sessions', ['id' => $oldId]);
         $this->assertNotNull($user->fresh()->last_login_at);
+        $this->assertSame($user->fresh()->created_at->toISOString(), $response->json('data.user.created_at'));
+        $this->assertSame($user->fresh()->last_login_at->toISOString(), $response->json('data.user.last_login_at'));
         $this->assertArrayNotHasKey('password', $response->json('data.user'));
         $this->assertArrayNotHasKey('remember_token', $response->json('data.user'));
         $this->assertArrayNotHasKey('token', $response->json('data'));

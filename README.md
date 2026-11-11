@@ -47,6 +47,7 @@ For a foreground server, run `stop` and then `.\dev.cmd serve`. Press Ctrl+C to 
 - A protected role/permission catalog and a console command to inspect, grant or revoke known role permissions.
 - Staff administration APIs and screens for profiles, department/role assignment and activation, with password reauthentication and version checks.
 - Administrator-issued, one-use password reset codes and a trusted server-console recovery command.
+- One frontend identity source, server-backed profile displays and session boundaries that clear private caches across account/access changes and tabs.
 - Private `backend/.env` is configured with the generated local database password and application key.
 
 `vendor/` contains installed PHP packages. `composer.lock` records their exact versions. `.env` and the project-local tools/database files are excluded from Git.
