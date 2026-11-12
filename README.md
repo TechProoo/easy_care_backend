@@ -54,6 +54,7 @@ For a foreground server, run `stop` and then `.\dev.cmd serve`. Press Ctrl+C to 
 - A read-only `files:verify` console command checks the private file/database recovery set.
 - Patient demographic/category/identifier/contact/family-link storage, with permanent number reservations and opt-in registration, search, duplicate-review and versioned editing APIs.
 - Private flags, governed restriction/restore, card/category history and two-person patient merges, with stable original records and canonical lookup.
+- Appointment, encounter and clinician-assignment storage, including bookings before registration, category-at-visit snapshots and one current clinician with retained assignment history. Booking/queue APIs follow in Tasks 22 and 23.
 - Private `backend/.env` is configured with the generated local database password and application key.
 
 `vendor/` contains installed PHP packages. `composer.lock` records their exact versions. `.env` and the project-local tools/database files are excluded from Git.
@@ -98,6 +99,6 @@ See [local development notes](docs/LOCAL_DEVELOPMENT.md) for database setup, tes
 - [Proposed MySQL schema](docs/architecture/schema.mysql.sql)
 - [Frontend/database review](docs/architecture/Frontend_Database_Review.md)
 
-The architecture and frontend review are design documents dated 4 November 2026. The Laravel development foundation was installed on 6 November 2026. The full 85-table schema remains a proposal; application migrations implement staff/roles, audit history, private files, command confirmations and patient storage alongside Laravel's runtime tables. See the [patient API contract](docs/LOCAL_DEVELOPMENT.md#patient-registration-search-and-editing-apis) for opt-in permissions, staff-entered numbers, duplicate review and partial edits. Patient screen integration and clinical/inventory/financial workflows follow their checklist stages.
+The architecture and frontend review are design documents dated 4 November 2026. The Laravel development foundation was installed on 6 November 2026. The full 85-table schema remains a proposal; application migrations implement staff/roles, audit history, private files, command confirmations, patient storage and visit foundations alongside Laravel's runtime tables. See the [patient API contract](docs/LOCAL_DEVELOPMENT.md#patient-registration-search-and-editing-apis) for opt-in permissions, staff-entered numbers, duplicate review and partial edits. Patient screens are connected. Booking/queue APIs and clinical/inventory/financial workflows follow their checklist stages. See the [visit storage contract](docs/LOCAL_DEVELOPMENT.md#appointment-encounter-and-assignment-storage).
 
 Transaction safeguards: staff creation/edits, recovery issuance and uploads now require a per-submission `Idempotency-Key`. Database changes, audit and command completion commit together; exact retries confirm an existing resource and stale versions remain rejected. See [transaction and retry rules](docs/LOCAL_DEVELOPMENT.md#transaction-and-retry-rules) for the header, outcomes, lock order and file-recovery limits.

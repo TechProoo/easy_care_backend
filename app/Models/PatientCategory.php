@@ -17,4 +17,9 @@ class PatientCategory extends Model
     {
         return $this->hasMany(Patient::class, 'category_id');
     }
+
+    public function encounters(): HasMany
+    {
+        return $this->hasMany(Encounter::class, 'category_id');
+    }
 }

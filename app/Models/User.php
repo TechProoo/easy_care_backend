@@ -53,6 +53,36 @@ class User extends Authenticatable
         return $this->hasMany(Patient::class, 'created_by');
     }
 
+    public function bookedAppointments(): HasMany
+    {
+        return $this->hasMany(Appointment::class, 'booked_by');
+    }
+
+    public function doctorAppointments(): HasMany
+    {
+        return $this->hasMany(Appointment::class, 'doctor_id');
+    }
+
+    public function openedEncounters(): HasMany
+    {
+        return $this->hasMany(Encounter::class, 'opened_by');
+    }
+
+    public function doctorAssignments(): HasMany
+    {
+        return $this->hasMany(DoctorAssignment::class, 'doctor_id');
+    }
+
+    public function givenAssignments(): HasMany
+    {
+        return $this->hasMany(DoctorAssignment::class, 'assigned_by');
+    }
+
+    public function endedAssignments(): HasMany
+    {
+        return $this->hasMany(DoctorAssignment::class, 'ended_by');
+    }
+
     public function hasPermission(string $code): bool
     {
         return $this->is_active

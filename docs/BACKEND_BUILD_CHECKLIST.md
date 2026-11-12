@@ -10,7 +10,7 @@ Updated 11 November 2026. Follow the stages in order. Tick a task only when its 
 - [x] Prepare the architecture proposal, database dictionary and frontend review.
 - [x] Publish the initial backend repository.
 
-The full 85-table proposal is not implemented as application migrations. Staff/roles, audit history, private files, command safeguards, patient storage, registration/search/edit and record-management APIs, and the connected patient workspace are implemented and tested. Later hospital workflows remain to be implemented. See each stage's evidence below.
+The full 85-table proposal is not implemented as application migrations. Staff/roles, audit history, private files, command safeguards, patient storage, registration/search/edit and record-management APIs, the connected patient workspace, and appointment/encounter/assignment storage are implemented and tested. Later hospital workflows remain to be implemented. See each stage's evidence below.
 
 ## How to use this checklist
 
@@ -93,10 +93,12 @@ Stage complete when staff can log in, register a patient, refresh, search and re
 
 ## Stage 6: Build appointments, visits and queues
 
-- [ ] **21. Create appointment, encounter and assignment records.** Define visit statuses and transitions, including booking before registration where required. Preserve booking contact details and assignment history.
+- [x] **21. Create appointment, encounter and assignment records.** Define visit statuses and transitions, including booking before registration where required. Preserve booking contact details and assignment history.
 - [ ] **22. Implement appointment booking and updates.** Support rescheduling, cancellation, follow-ups and the agreed conflict rules. Verify simultaneous requests cannot bypass slot restrictions.
 - [ ] **23. Implement arrival, clinician assignment and queues.** Link a registered patient to the correct visit, assign or reassign staff and record acceptance, progress and completion with authorized transitions.
 - [ ] **24. Connect frontdesk and clinician screens.** Replace mock bookings, queues and visitation logs. Test a booking from creation through arrival and doctor acceptance.
+
+Task 21 completed on 11 November 2026: an additive migration creates appointments, encounters and clinician-assignment history, with three models, factories and reciprocal patient/category/staff relationships. Bookings may precede registration and preserve independent contact details. Visits keep the category-at-opening snapshot; a composite foreign key and unique appointment link prevent linking another patient's booking or creating two visits from one appointment. Version and lifecycle guards apply to raw SQL as well as model writes. The confirmed rule is one current clinician per visit, with immutable ended assignments and attributed end reasons. MySQL parent locks and the unique current-encounter key protect competing assignment, reassignment and cancellation requests. All 476 tests passed on MySQL (3,724 assertions); SQLite passed 462 (3,621 assertions), with fourteen MySQL-only skips. The 97 new cases cover storage, references, transitions, snapshots, retained history, rollback and migration reapplication; four strengthened real concurrency cases also passed separately (37 assertions), including prior-read snapshots and backdated replacement attempts. The migration is applied locally with zero appointments, encounters or assignments and unchanged development data/grants. No new permissions, booking/queue APIs or frontend behavior are introduced. See [the visit storage contract](LOCAL_DEVELOPMENT.md#appointment-encounter-and-assignment-storage). Slot/conflict rules, authorized booking/arrival/queue actions and screen integration remain Tasks 22-24.
 
 Stage complete when frontdesk and clinicians see the same saved visit and assignment state.
 
@@ -174,7 +176,7 @@ Stage complete when the hospital has accepted the working release and can operat
 
 ## Current next task
 
-**Task 21: create appointment, encounter and assignment records.** Define visit statuses and transitions, support booking before registration where required, and preserve booking contact details and clinician-assignment history. Reconcile those structures with the existing booking, visit and queue screens before implementing Task 22 booking APIs. Stage 1 decisions remain unchecked, and Task 11 still needs hospital approval of its identity-verification and console-operator procedure. No unfinished task above is marked complete merely because its table exists in the proposal.
+**Task 22: implement appointment booking and updates.** Add authorized booking/search/detail/update APIs, with rescheduling, cancellation, follow-up links, expected versions, idempotent confirmation and atomic audit. Settle hospital timezone, scheduling/availability and conflict rules before enforcing slots; verify simultaneous booking/update requests cannot bypass those rules. Keep unregistered booking contacts independent from patient demographics and preserve original ownership after a merge. Arrival, clinician assignment and queues follow in Task 23; booking/queue screens follow in Task 24. Stage 1 decisions remain unchecked, and Task 11 still needs hospital approval of its identity-verification and console-operator procedure. No unfinished task above is marked complete merely because its table exists in the proposal.
 
 ## Reference documents
 

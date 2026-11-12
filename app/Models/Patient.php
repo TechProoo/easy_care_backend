@@ -30,6 +30,16 @@ class Patient extends Model
         return $this->belongsTo(PatientCategory::class, 'category_id');
     }
 
+    public function appointments(): HasMany
+    {
+        return $this->hasMany(Appointment::class);
+    }
+
+    public function encounters(): HasMany
+    {
+        return $this->hasMany(Encounter::class);
+    }
+
     public function scopeVisibleTo(Builder $query, User $viewer): Builder
     {
         return $query->where('patients.access_status', 'active')
