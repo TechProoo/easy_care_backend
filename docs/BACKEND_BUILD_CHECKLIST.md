@@ -110,12 +110,15 @@ Task 24 completed on 11 November 2026: the frontdesk booking, visitation and cli
 
 ## Stage 7: Build clinical records and nursing observations
 
-- [ ] **25. Create encounter-scoped clinical storage.** Add vitals, clinical templates/entries, diagnoses, procedures, prescriptions and their relationships as required by the agreed screens.
+- [x] **25. Create encounter-scoped clinical storage.** Add vitals, clinical templates/entries, diagnoses, procedures, prescriptions and their relationships as required by the agreed screens.
 - [ ] **26. Implement clinical entry and review.** Support structured notes, vitals, diagnoses and procedures with approved field validation. Preserve the author and distinguish draft, signed and amended records.
 - [ ] **27. Implement prescriptions and patient history.** Link prescriptions to the correct patient and encounter; retain medication instructions and status. Present an authorized history without making duplicate writable patient records.
 - [ ] **28. Connect doctor and nurse clinical screens.** Replace global clinical state with patient/encounter-scoped requests. Test two patients and two concurrent staff sessions; signed records must be amended through history rather than silently overwritten.
 
 Stage complete when clinical work persists against the correct encounter and authorized staff can review its history.
+
+Task 25 completed on 11 November 2026: nine clinical tables, models and useful factories connect vitals, versioned templates/structured notes, diagnoses, procedures and ordered prescription lines through one patient/encounter identity. Database guards preserve the author, finalizer, precise times, record kind and amendment predecessor. Drafts support signing/voiding with version checks; finalized headers/content are immutable, and reasoned linked corrections retain their predecessors without branching. Template versions stay immutable, related findings stay within one encounter and medication lines freeze on finalization. Vitals retain explicit units and derive BMI; coded diagnoses retain the code-system version, and procedure quotes remain separate from billing. Existing rollback tests include the new dependency chain. The full gate passed all 666 MySQL tests (6,978 assertions) and 638 SQLite passes (6,765 assertions), with twenty-eight MySQL-only skips; eighty-two new cases include five real competing clinical transactions. The final strengthened nine identity cases also passed on SQLite (ninety assertions) and MySQL, alongside a final rollback check (ten cases, 138 assertions). The local migration is applied with all nine clinical tables empty; existing development counts, twenty-eight permissions and twenty-one grants are unchanged. Disposable test data/schema are cleared and the normal backend is healthy. No clinical APIs, permission grants, approved medical catalogs or screen integration are introduced. See [the clinical storage contract and relationships](LOCAL_DEVELOPMENT.md#encounter-scoped-clinical-storage). Clinical entry/review remains Task 26.
+
 
 ## Stage 8: Build admissions and specialist nursing workflows
 
@@ -182,7 +185,7 @@ Stage complete when the hospital has accepted the working release and can operat
 
 ## Current next task
 
-**Task 25: create encounter-scoped clinical storage.** Review the agreed doctor/nurse fields, then add migrations, models, useful factories and relationships for vitals, clinical templates/entries, diagnoses, procedures and prescriptions. Preserve authorship, patient/encounter consistency, record lifecycle and retained history with database integrity checks. Clinical entry/review, prescriptions/history APIs and doctor/nurse screen integration remain Tasks 26-28. Stage 1 decisions remain unchecked, and Task 11 still needs hospital approval of its identity-verification and console-operator procedure. No unfinished task above is marked complete merely because its table exists in the proposal.
+**Task 26: implement clinical entry and review.** Add opt-in clinical permissions and encounter-scoped APIs for structured notes, vitals, diagnoses and procedures using the saved clinical storage. Validate approved fields/template versions, recheck staff and patient/encounter scope, protect draft authorship, and govern signing, voiding and reasoned amendments through expected versions, transactions, command retries and safe auditing. Confirm the hospital's clinical field, signing/review and closed-encounter amendment rules before enabling those actions. Prescriptions/patient-history APIs and doctor/nurse screen integration remain Tasks 27-28. Stage 1 decisions remain unchecked, and Task 11 still needs hospital approval of its identity-verification and console-operator procedure. No unfinished task above is marked complete merely because its table exists in the proposal.
 
 ## Reference documents
 

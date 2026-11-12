@@ -80,6 +80,11 @@ class Encounter extends Model
         return in_array($status, self::TRANSITIONS[$this->status] ?? [], true);
     }
 
+    public function clinicalRecords(): HasMany
+    {
+        return $this->hasMany(ClinicalRecord::class)->orderBy('recorded_at')->orderBy('id');
+    }
+
     protected function casts(): array
     {
         return ['opened_at' => 'immutable_datetime', 'closed_at' => 'immutable_datetime', 'version' => 'integer'];

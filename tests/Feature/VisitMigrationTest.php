@@ -25,8 +25,10 @@ class VisitMigrationTest extends TestCase
         $migration = require database_path('migrations/2026_11_11_225842_create_visit_foundation_tables.php');
         $bookings = require database_path('migrations/2026_11_12_012918_create_appointment_booking_records.php');
         $workflow = require database_path('migrations/2026_11_12_023554_create_encounter_workflow_records.php');
+        $clinical = require database_path('migrations/2026_11_12_042242_create_clinical_storage_tables.php');
         $this->assertTablesUnchanged(['users', 'roles', 'permissions', 'role_permissions', 'patients', 'patient_identifiers',
-            'patient_categories', 'files', 'audit_events', 'idempotency_requests'], function () use ($migration, $bookings, $workflow): void {
+            'patient_categories', 'files', 'audit_events', 'idempotency_requests'], function () use ($migration, $bookings, $workflow, $clinical): void {
+            $clinical->down();
             $workflow->down();
             $bookings->down();
             $migration->down();
@@ -36,6 +38,7 @@ class VisitMigrationTest extends TestCase
             $migration->up();
             $bookings->up();
             $workflow->up();
+            $clinical->up();
             foreach (['appointments', 'encounters', 'doctor_assignments'] as $table) {
                 $this->assertDatabaseCount($table, 0);
             }

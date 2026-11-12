@@ -101,6 +101,11 @@ class Patient extends Model
         return Attribute::make(set: fn (string $value): string => strtoupper(trim($value)));
     }
 
+    public function clinicalRecords(): HasMany
+    {
+        return $this->hasMany(ClinicalRecord::class)->orderBy('recorded_at')->orderBy('id');
+    }
+
     protected function casts(): array
     {
         return [

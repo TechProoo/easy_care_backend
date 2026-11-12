@@ -83,6 +83,16 @@ class User extends Authenticatable
         return $this->hasMany(DoctorAssignment::class, 'ended_by');
     }
 
+    public function authoredClinicalRecords(): HasMany
+    {
+        return $this->hasMany(ClinicalRecord::class, 'authored_by');
+    }
+
+    public function finalizedClinicalRecords(): HasMany
+    {
+        return $this->hasMany(ClinicalRecord::class, 'finalized_by');
+    }
+
     public function hasPermission(string $code): bool
     {
         return $this->is_active

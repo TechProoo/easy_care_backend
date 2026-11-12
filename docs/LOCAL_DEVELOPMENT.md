@@ -882,3 +882,49 @@ Each form keeps its current record/assignment versions and a command key in memo
 Lists, rosters, patient searches and histories use bounded server pagination. Load scopes include the staff access revision and current filters/record IDs; aborted or late responses cannot populate a newer query or another account. Action/history denial revalidates the parent visit/booking and removes its private details when access is lost. Permission rechecks and cross-tab sign-out clear private forms, selected patients, results and pending keys. Patient data, reasons, booking drafts and command keys are not persisted in browser storage.
 
 Task 24 verification on 11 November 2026: all 69 frontend tests passed, including 22 new booking/visit checks. Strict TypeScript and the production build passed. All 97 affected booking/visit API tests passed on both MySQL and SQLite (1,777 assertions each), including the minimal display-name, directory-scope and audit-privacy checks. Twenty-eight real-session browser checks passed with zero page errors, covering saved booking refresh, UTC/Lagos conversion, lost booking/arrival/acceptance/completion responses, identical explicit retries, stale tabs, overlaps/validation, preserved past microseconds, restricted patient search, verified arrival, clinician isolation, read-only/custom roles, handover, completed access/history, follow-ups, no-show/cancellation, walk-ins, real visitation filters, bounded list/queue pages, permission revocation and cross-tab logout. Loaded desktop/mobile captures were inspected. No schema/catalog/grant changes or development sample records were added. Disposable previews, records and browser credentials were cleared; Task 25 is next.
+
+
+## Encounter-scoped clinical storage
+
+Task 25 adds storage and model relationships only. Clinical routes, permissions, approved clinical validation/signing policies and screen integration remain Tasks 26-28. The existing screen definitions informed the fields; sample diagnoses, procedures, medications and templates are not imported or treated as hospital-approved catalogs. There are no clinical template seeds, new permissions, default grants or demonstration records.
+
+```mermaid
+erDiagram
+    PATIENTS ||--o{ ENCOUNTERS : attends
+    ENCOUNTERS ||--o{ CLINICAL_RECORDS : contains
+    USERS ||--o{ CLINICAL_RECORDS : authors_or_finalizes
+    CLINICAL_RECORDS ||--o| CLINICAL_RECORDS : amended_by
+    CLINICAL_RECORDS ||--o| VITAL_SIGNS : vitals_payload
+    CLINICAL_RECORDS ||--o| CLINICAL_ENTRIES : note_payload
+    CLINICAL_RECORDS ||--o| DIAGNOSES : diagnosis_payload
+    CLINICAL_RECORDS ||--o| CLINICAL_PROCEDURES : procedure_payload
+    CLINICAL_RECORDS ||--o| PRESCRIPTIONS : prescription_payload
+    PRESCRIPTIONS ||--o{ PRESCRIPTION_ITEMS : medication_lines
+    CLINICAL_TEMPLATES ||--o{ CLINICAL_TEMPLATE_VERSIONS : publishes
+    CLINICAL_TEMPLATE_VERSIONS o|--o{ CLINICAL_ENTRIES : defines
+```
+
+Each `clinical_records` row owns exactly one kind of payload. Its composite encounter/patient foreign key prevents cross-patient records, and its author, encounter, patient, kind, recorded time and amendment link cannot be rewritten. Typed rows use that record ID as their primary key; they do not create separate writable patient identities. A note may reference another clinical record, such as a procedure finding, only within the same patient and encounter. The finding's own header retains its author separately from the procedure's author. Encounters retain the category-at-visit snapshot; neither a category change nor an independently approved patient merge moves clinical ownership.
+
+| Storage | Fields and relationships |
+| --- | --- |
+| `clinical_records` | Patient, encounter, kind, original author, UTC recorded time, draft version, status, finalizing staff/time, amendment predecessor/reason and void reason. Indexed for patient history, encounter/kind/status and author drafts. |
+| `vital_signs` | Observation time; temperature in Celsius; paired systolic/diastolic mmHg; kg, metres, glucose with explicit `mg/dL` or `mmol/L`, pulse, respiration, SpO2, optional fetal heart rate, urinalysis and comment. BMI is derived from height/weight rather than stored independently. |
+| `clinical_templates`, `clinical_template_versions` | Stable template code, active flag, immutable numbered title/field-definition versions and publishing staff/time. Entries reference an exact version; later edits or retirement of the template leave old definitions intact. |
+| `clinical_entries` | Section, JSON object of structured fields, optional narrative, exact optional template version and optional same-encounter related record. Supports presenting complaints, examinations and other structured notes without embedding mock data. |
+| `diagnoses` | Description plus an optional complete code-system/version/code snapshot. Multiple diagnoses use separate records; no unapproved ICD catalog is seeded. |
+| `clinical_procedures` | Procedure name/code snapshot, remarks/findings, optional paired performing staff/time and decimal quoted amount with explicit uppercase three-letter currency. Quotes are not billing-ledger entries. |
+| `prescriptions`, `prescription_items` | Record-level instructions and order status (`active`, `stopped`, `completed`); ordered medication lines retain name, form, strength, dose, route, frequency, paired duration/unit, paired quantity/unit and instructions. This is prescribing storage; dispensing/stock workflows remain later tasks. |
+
+Records start as version-one drafts. Header changes require the next version. Signing requires the matching typed content, and a prescription must have at least one medication line. `finalized_by`/`finalized_at` identify the signing staff/time for `signed`, or the staff/time recording `voided`; voiding requires a reason. A signed or voided header and its content are immutable. Corrections create a new draft pointing to the immediate finalized predecessor with a reason, retaining the earlier author, finalizer and values. One successor per predecessor prevents competing branches. A voided predecessor can be corrected through a further linked record. `ClinicalRecord::current()` returns finalized heads, including voided heads so callers can distinguish retractions; a pending draft amendment does not conceal the earlier signed record. It is a lifecycle query, not an authorization scope, and must never be used as an unscoped API history endpoint.
+
+Draft prescription lines can be edited or removed; finalized lines cannot be inserted, changed, moved or removed. All clinical headers, typed payload rows and published template versions are retained. On MySQL, content and line mutations lock their parent clinical record, and signing uses current locking reads. A signature and competing content edit therefore serialize even when another transaction has already read an older snapshot. Amendments share a unique predecessor key and must match its patient, encounter and kind. New ordinary records require an active patient and open/in-progress encounter. Linked corrections may retain a closed encounter; this storage capability does not authorize any staff member to amend closed care. Restricted/merged identities reject new drafts; retained history stays in its original scope.
+
+An `active` prescription payload is not by itself a usable order: consumers must also check that its owning record is the current signed head and that the staff member can access it. Draft and voided records do not authorize prescribing or dispensing actions.
+
+Future write services must recheck active staff, explicit clinical permissions, patient/encounter visibility, author/reviewer authority and the expected aggregate version under the shared transaction locks. Payload edits and the header version change must commit together, along with private clinical history and a safe general audit summary. The database protects structural integrity and finalized history; field schema validation, clinical ranges, required signing fields, review/co-sign rules, draft handling at encounter completion and approved amendment access are still hospital/API decisions for Task 26. General audit records must not receive clinical content. All timestamps use UTC with microseconds; hospital-facing presentation remains Africa/Lagos.
+
+The migration creates only the nine clinical tables. Rollback drops their contents in dependency order without changing patient, staff, visit, booking, file, audit or authorization data. The self-referencing amendment table is dropped with foreign-key checks suspended on that connection and restored immediately. A rollback removes clinical data and requires the hospital's backup/recovery procedure before production use.
+
+
+Task 25 verification on 11 November 2026: all 666 MySQL tests passed (6,978 assertions); SQLite passed 638 cases (6,765 assertions), with twenty-eight MySQL-specific skips. The eighty-two new cases cover relationships, exact template versions, clinical identity/type isolation, original authors/finalizers, immutable signed/voided content, retained corrections, explicit units/precision, prescription lines, approved-merge ownership retention, schema upgrade/rollback and five real competing clinical transactions. A final strengthened identity rerun used valid replacement patients, encounters, authors and predecessors: nine SQLite cases passed (ninety assertions), and those nine MySQL cases plus the final schema rollback passed (ten cases, 138 assertions). The local migration is applied; all nine clinical tables are empty, existing development counts and authorization grants are unchanged, the disposable test schema is cleared and backend health returns HTTP 200. Frontend code is unchanged.

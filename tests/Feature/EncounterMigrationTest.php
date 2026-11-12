@@ -21,11 +21,14 @@ class EncounterMigrationTest extends TestCase
         Appointment::factory()->create();
         $visit = Encounter::factory()->create();
         $migration = require database_path('migrations/2026_11_12_023554_create_encounter_workflow_records.php');
+        $clinical = require database_path('migrations/2026_11_12_042242_create_clinical_storage_tables.php');
         $this->assertTablesUnchanged(['users', 'patients', 'roles', 'permissions', 'role_permissions', 'appointments',
-            'appointment_revisions', 'appointment_follow_ups', 'encounters', 'doctor_assignments', 'audit_events', 'idempotency_requests'], function () use ($migration): void {
+            'appointment_revisions', 'appointment_follow_ups', 'encounters', 'doctor_assignments', 'audit_events', 'idempotency_requests'], function () use ($migration, $clinical): void {
+            $clinical->down();
             $migration->down();
             $this->assertFalse(Schema::hasTable('encounter_revisions'));
             $migration->up();
+            $clinical->up();
             $this->assertDatabaseCount('encounter_revisions', 0);
         });
         $revision = EncounterRevision::factory()->for($visit)->create();

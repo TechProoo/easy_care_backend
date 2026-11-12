@@ -57,6 +57,7 @@ For a foreground server, run `stop` and then `.\dev.cmd serve`. Press Ctrl+C to 
 - Appointment, encounter and clinician-assignment storage, including bookings before registration, category-at-visit snapshots and one current clinician with retained assignment history. Booking, arrival and queue APIs are connected to this storage.
 - Authorized booking, search, rescheduling, confirmation, cancellation, no-show and follow-up APIs, with private revision history, Lagos calendar dates and clinician interval conflict checks.
 - Verified booking arrivals and walk-in visits, clinician assignment/reassignment, acceptance and completion by the assigned clinician, protected queues and immutable visit history.
+- Encounter-scoped clinical storage for versioned templates/notes, vitals, diagnoses, procedures and prescription lines, with retained authorship, protected signed records and linked amendments. Clinical APIs and screens remain Tasks 26-28; see the [storage contract](docs/LOCAL_DEVELOPMENT.md#encounter-scoped-clinical-storage).
 - Private `backend/.env` is configured with the generated local database password and application key.
 
 `vendor/` contains installed PHP packages. `composer.lock` records their exact versions. `.env` and the project-local tools/database files are excluded from Git.
