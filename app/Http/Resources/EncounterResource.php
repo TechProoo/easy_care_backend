@@ -17,7 +17,7 @@ class EncounterResource extends JsonResource
             'queue' => in_array($this->status, ['closed', 'cancelled'], true) ? null
                 : ($assignment === null ? 'unassigned' : ($assignment->status === 'accepted' ? 'in_progress' : 'waiting')),
             'patient' => $this->patient->only(['id', 'mrn', 'first_name', 'last_name', 'version']),
-            'current_assignment' => $assignment === null ? null : EncounterFlow::assignment($assignment),
+            'current_assignment' => $assignment === null ? null : EncounterFlow::assignment($assignment) + ['doctor_name' => $assignment->doctor?->name],
         ];
     }
 }

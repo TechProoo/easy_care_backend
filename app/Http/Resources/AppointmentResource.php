@@ -10,6 +10,6 @@ class AppointmentResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
-        return AppointmentBookings::snapshot($this->resource);
+        return AppointmentBookings::snapshot($this->resource) + ['doctor_name' => $this->doctor?->name];
     }
 }

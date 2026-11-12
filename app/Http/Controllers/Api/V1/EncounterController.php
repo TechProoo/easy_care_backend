@@ -30,7 +30,7 @@ class EncounterController extends Controller
 
     public function index(ListEncountersRequest $request, AuditTrail $audit): AnonymousResourceCollection
     {
-        $query = Encounter::query()->visibleTo($request->user('web'))->with(['patient', 'currentAssignment']);
+        $query = Encounter::query()->visibleTo($request->user('web'))->with(['patient', 'currentAssignment.doctor:id,name']);
         if ($request->route()->getName() === 'api.v1.queues.index') {
             $query->whereIn('status', ['open', 'in_progress']);
         }
@@ -65,7 +65,7 @@ class EncounterController extends Controller
 
     public function show(Request $request, int $encounter, AuditTrail $audit): EncounterResource
     {
-        $visit = Encounter::query()->visibleTo($request->user('web'))->with(['patient', 'currentAssignment'])->findOrFail($encounter);
+        $visit = Encounter::query()->visibleTo($request->user('web'))->with(['patient', 'currentAssignment.doctor:id,name'])->findOrFail($encounter);
         $audit->record('encounter.viewed', $request->user('web')->id, 'encounter', $visit->id);
 
         return new EncounterResource($visit);
@@ -83,7 +83,7 @@ class EncounterController extends Controller
     {
         return $commands->run($request, function () use ($request, $flow): JsonResponse {
             $visit = $flow->execute($request, $request->user('web'), app(EncounterCommandRequest::class)->validated());
-            $visit->load(['patient', 'currentAssignment']);
+            $visit->load(['patient', 'currentAssignment.doctor:id,name']);
 
             return (new EncounterResource($visit))->response()->setStatusCode(in_array(EncounterFlow::action($request), ['store', 'arrive'], true) ? 201 : 200);
         });
@@ -94,6 +94,6 @@ class EncounterController extends Controller
         $visit = Encounter::query()->visibleTo($request->user('web'))->findOrFail($encounter);
         $audit->record('encounter.history_viewed', $request->user('web')->id, 'encounter', $visit->id);
 
-        return DoctorAssignmentResource::collection($visit->assignments()->paginate($request->integer('per_page', config('api.pagination.per_page'))));
+        return DoctorAssignmentResource::collection($visit->assignments()->with('doctor:id,name')->paginate($request->integer('per_page', config('api.pagination.per_page'))));
     }
 }

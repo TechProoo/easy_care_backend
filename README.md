@@ -106,6 +106,6 @@ The architecture and frontend review are design documents dated 4 November 2026.
 Transaction safeguards: staff creation/edits, recovery issuance and uploads now require a per-submission `Idempotency-Key`. Database changes, audit and command completion commit together; exact retries confirm an existing resource and stale versions remain rejected. See [transaction and retry rules](docs/LOCAL_DEVELOPMENT.md#transaction-and-retry-rules) for the header, outcomes, lock order and file-recovery limits.
 
 
-See the [appointment API contract](docs/LOCAL_DEVELOPMENT.md#appointment-booking-and-update-apis) for opt-in permissions, required interval/offset fields, conflict responses, retained booking history and merge safeguards. Booking and queue frontend demonstrations remain pending Task 24.
+See the [appointment API contract](docs/LOCAL_DEVELOPMENT.md#appointment-booking-and-update-apis) for opt-in permissions, required interval/offset fields, conflict responses, retained booking history and merge safeguards. Saved frontdesk and clinician screens are connected in Task 24.
 
-See the [arrival and queue API contract](docs/LOCAL_DEVELOPMENT.md#arrival-clinician-assignment-and-queue-apis) for identity verification, opt-in permissions, clinician isolation, expected versions and retry rules. Booking and queue screen integration follows in Task 24.
+See the [arrival and queue API contract](docs/LOCAL_DEVELOPMENT.md#arrival-clinician-assignment-and-queue-apis) for identity verification, opt-in permissions, clinician isolation, expected versions and retry rules. The [saved frontend screens](docs/LOCAL_DEVELOPMENT.md#saved-booking-and-clinician-screens) connect bookings through arrival, assignment and clinician completion.

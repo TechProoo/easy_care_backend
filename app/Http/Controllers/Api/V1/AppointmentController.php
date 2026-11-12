@@ -24,7 +24,7 @@ class AppointmentController extends Controller
 {
     public function index(ListAppointmentsRequest $request, AuditTrail $audit): AnonymousResourceCollection
     {
-        $query = Appointment::query()->visibleTo($request->user('web'))->with('followUpLink');
+        $query = Appointment::query()->visibleTo($request->user('web'))->with(['followUpLink', 'doctor:id,name']);
         foreach (preg_split('/\s+/u', $request->validated('q', '') ?? '', flags: PREG_SPLIT_NO_EMPTY) as $part) {
             $pattern = '%'.str_replace(['!', '%', '_'], ['!!', '!%', '!_'], $part).'%';
             $query->where(fn (Builder $query): Builder => $query->whereRaw("first_name LIKE ? ESCAPE '!'", [$pattern])
@@ -71,7 +71,7 @@ class AppointmentController extends Controller
 
     public function show(Request $request, int $appointment, AuditTrail $audit): AppointmentResource
     {
-        $record = Appointment::query()->visibleTo($request->user('web'))->with('followUpLink')->findOrFail($appointment);
+        $record = Appointment::query()->visibleTo($request->user('web'))->with(['followUpLink', 'doctor:id,name'])->findOrFail($appointment);
         $audit->record('appointment.viewed', $request->user('web')->id, 'appointment', $record->id);
 
         return (new AppointmentResource($record))->additional(['meta' => ['timezone' => config('appointments.timezone')]]);

@@ -10,6 +10,6 @@ class DoctorAssignmentResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
-        return EncounterFlow::assignment($this->resource) + ['end_reason' => $this->end_reason];
+        return EncounterFlow::assignment($this->resource) + ['end_reason' => $this->end_reason, 'doctor_name' => $this->doctor?->name];
     }
 }

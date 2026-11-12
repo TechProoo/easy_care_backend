@@ -428,6 +428,25 @@ class EncounterApiTest extends TestCase
         $this->assertSame(Encounter::findOrFail($id)->closed_at->toISOString(), DoctorAssignment::findOrFail($current['id'])->ended_at->toISOString());
     }
 
+    public function test_visit_and_assignment_resources_show_clinician_names_without_directory_or_audit_disclosure(): void
+    {
+        $doctor = $this->createStaffWithRole('doctor', ['first_name' => 'Visit Clinician Display Sentinel',
+            'last_name' => 'Synthetic', 'email' => 'private.visit.clinician@example.test', 'staff_code' => 'DISPLAY-DOCTOR-2']);
+        $id = $this->openVisit();
+        $this->assign($id, doctor: $doctor)->assertOk()->assertJsonPath('data.current_assignment.doctor_name', $doctor->name)
+            ->assertJsonMissingPath('data.current_assignment.doctor')->assertJsonMissingPath('data.current_assignment.email');
+        $this->getJson('/api/v1/queues')->assertOk()->assertJsonPath('data.0.current_assignment.doctor_name', $doctor->name);
+        $this->getJson('/api/v1/encounters/'.$id)->assertOk()->assertJsonPath('data.current_assignment.doctor_name', $doctor->name);
+        $this->getJson('/api/v1/encounters/'.$id.'/assignments')->assertOk()->assertJsonPath('data.0.doctor_name', $doctor->name)
+            ->assertJsonMissingPath('data.0.email')->assertJsonMissingPath('data.0.staff_code');
+        $this->getJson('/api/v1/encounters/'.$id.'/history')->assertOk()->assertJsonMissingPath('data.1.snapshot.assignments.0.doctor_name');
+        $this->assertAuditExcludes([$doctor->name, $doctor->email, $doctor->staff_code]);
+        $this->getJson('/api/v1/staff/'.$doctor->id)->assertNotFound();
+        $other = $this->createStaffWithRole('doctor');
+        $this->signIn($other);
+        $this->getJson('/api/v1/encounters/'.$id)->assertNotFound();
+    }
+
     private function opening(): array
     {
         return ['patient_id' => $this->patient->id, 'patient_version' => $this->patient->fresh()->version,

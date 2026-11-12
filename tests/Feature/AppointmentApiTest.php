@@ -469,6 +469,20 @@ class AppointmentApiTest extends TestCase
         }
     }
 
+    public function test_booking_resources_include_only_the_minimal_planned_clinician_display_name(): void
+    {
+        $doctor = $this->createStaffWithRole('doctor', ['first_name' => 'Clinician Display Sentinel',
+            'last_name' => 'Synthetic', 'email' => 'private.clinician@example.test', 'staff_code' => 'DISPLAY-DOCTOR-1']);
+        $id = $this->postCommand('/api/v1/appointments', $this->data(['doctor_id' => $doctor->id]))->assertCreated()
+            ->assertJsonPath('data.doctor_name', $doctor->name)->assertJsonMissingPath('data.doctor')
+            ->assertJsonMissingPath('data.doctor_email')->assertJsonMissingPath('data.staff_code')->json('data.id');
+        $this->getJson('/api/v1/appointments/'.$id)->assertOk()->assertJsonPath('data.doctor_name', $doctor->name);
+        $this->getJson('/api/v1/appointments?doctor_id='.$doctor->id)->assertOk()->assertJsonPath('data.0.doctor_name', $doctor->name);
+        $this->getJson('/api/v1/appointments/'.$id.'/history')->assertOk()->assertJsonMissingPath('data.0.snapshot.doctor_name');
+        $this->assertAuditExcludes([$doctor->name, $doctor->email, $doctor->staff_code]);
+        $this->getJson('/api/v1/staff/'.$doctor->id)->assertNotFound();
+    }
+
     private function tables(): array
     {
         return ['appointments', 'appointment_revisions', 'appointment_follow_ups', 'idempotency_requests'];
