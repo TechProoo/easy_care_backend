@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Exceptions\WriteConflict;
 use App\Models\Patient;
+use App\Models\Appointment;
 use App\Models\PatientAccessEvent;
 use App\Models\PatientCategoryHistory;
 use App\Models\PatientFlag;
@@ -220,6 +221,9 @@ class PatientRecordManagement
             $this->version($target->version, $proposal->target_version);
             $sourceIds = $this->lineage($patient->id, true);
             $targetIds = $this->lineage($target->id);
+            if (Appointment::whereIn('patient_id', $sourceIds)->whereIn('status', ['booked', 'confirmed'])->exists()) {
+                throw new WriteConflict('merge_appointments_pending', 'Resolve active bookings on the source patient before approving this merge.');
+            }
             $related = DB::table('patient_relationships')->where(function (QueryBuilder $query) use ($sourceIds, $targetIds): void {
                 $query->whereIn('patient_id', $sourceIds)->whereIn('related_patient_id', $targetIds);
             })->orWhere(function (QueryBuilder $query) use ($sourceIds, $targetIds): void {

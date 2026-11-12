@@ -35,6 +35,14 @@ class AuditSecurityEvents
             'api.v1.patients.index' => 'patient.listed',
             'api.v1.patients.show' => 'patient.viewed',
             'api.v1.patients.duplicates' => 'patient.duplicates_checked',
+            'api.v1.appointments.store' => 'appointment.created',
+            'api.v1.appointments.update' => 'appointment.updated',
+            'api.v1.appointments.confirm' => 'appointment.confirmed',
+            'api.v1.appointments.cancel' => 'appointment.cancelled',
+            'api.v1.appointments.no-show' => 'appointment.no_show',
+            'api.v1.appointments.index' => 'appointment.listed',
+            'api.v1.appointments.show' => 'appointment.viewed',
+            'api.v1.appointments.history' => 'appointment.history_viewed',
             'api.v1.patients.records.flags.index' => 'patient.flags_viewed',
             'api.v1.patients.records.cards.index' => 'patient.card_history_viewed',
             'api.v1.patients.records.access.show' => 'patient.access_state_viewed',
@@ -47,14 +55,17 @@ class AuditSecurityEvents
             $fileId = $request->route('file');
             $isFile = str_starts_with($action, 'file.');
             $isPatient = str_starts_with($action, 'patient.');
+            $isAppointment = str_starts_with($action, 'appointment.');
+            $appointmentId = $request->route('appointment');
             $patientId = $request->route('patient');
             $this->audit->record(
                 action: $action,
                 actorId: $request->user('web')?->id,
-                subjectType: $isPatient ? 'patient' : ($isFile ? 'file' : ($action === 'audit.viewed' ? 'audit' : 'staff')),
-                subjectId: $isPatient && is_string($patientId) && ctype_digit($patientId) ? (int) $patientId
+                subjectType: $isAppointment ? 'appointment' : ($isPatient ? 'patient' : ($isFile ? 'file' : ($action === 'audit.viewed' ? 'audit' : 'staff'))),
+                subjectId: $isAppointment && is_string($appointmentId) && ctype_digit($appointmentId) ? (int) $appointmentId
+                    : ($isPatient && is_string($patientId) && ctype_digit($patientId) ? (int) $patientId
                     : ($isFile && is_string($fileId) && ctype_digit($fileId) ? (int) $fileId
-                    : ($target instanceof User ? $target->id : null)),
+                    : ($target instanceof User ? $target->id : null))),
                 outcome: $status >= 500 ? 'failed' : 'denied',
                 httpStatus: $status,
             );

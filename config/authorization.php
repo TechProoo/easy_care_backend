@@ -7,6 +7,9 @@ return [
     'files_baseline' => 'protected-files-v1',
     'reset_minutes' => 15,
     'permissions' => [
+        'appointments.view' => 'View bookings, booking history and the clinician booking roster',
+        'appointments.create' => 'Create appointments and follow-up bookings',
+        'appointments.update' => 'Edit, reschedule, confirm, cancel or mark appointments as no-show',
         'patients.flags.view' => 'Review patient flags',
         'patients.flags.manage' => 'Create and resolve patient flags',
         'patients.cards.manage' => 'Change patient cards and review category history',

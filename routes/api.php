@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\V1\AccessControlController;
+use App\Http\Controllers\Api\V1\AppointmentController;
 use App\Http\Controllers\Api\V1\AuditHistoryController;
 use App\Http\Controllers\Api\V1\DepartmentController;
 use App\Http\Controllers\Api\V1\HealthController;
@@ -29,6 +30,22 @@ Route::prefix('v1')->name('api.v1.')->group(function (): void {
             ->middleware('throttle:staff-recovery')->name('auth.password.reset');
 
         Route::middleware(['auth:web', EnsureStaffIsActive::class, 'auth.session'])->group(function (): void {
+            Route::prefix('appointments')->name('appointments.')->middleware('can:appointments.view')->group(function (): void {
+                Route::get('options', [AppointmentController::class, 'options'])->name('options');
+                Route::get('clinicians', [AppointmentController::class, 'clinicians'])->name('clinicians');
+                Route::get('/', [AppointmentController::class, 'index'])->name('index');
+                Route::get('{appointment}', [AppointmentController::class, 'show'])->where('appointment', '[1-9][0-9]{0,17}')->name('show');
+                Route::get('{appointment}/history', [AppointmentController::class, 'history'])->where('appointment', '[1-9][0-9]{0,17}')->name('history');
+                Route::middleware('throttle:appointment-writes')->group(function (): void {
+                    Route::post('/', [AppointmentController::class, 'store'])->middleware('can:appointments.create')->name('store');
+                    Route::patch('{appointment}', [AppointmentController::class, 'update'])->where('appointment', '[1-9][0-9]{0,17}')
+                        ->middleware('can:appointments.update')->name('update');
+                    foreach (['confirm', 'cancel', 'no-show'] as $action) {
+                        Route::post('{appointment}/'.$action, [AppointmentController::class, 'action'])->where('appointment', '[1-9][0-9]{0,17}')
+                            ->middleware('can:appointments.update')->name($action);
+                    }
+                });
+            });
             Route::middleware('can:patients.view')->group(function (): void {
                 Route::prefix('patients/{patient}')->where(['patient' => '[1-9][0-9]{0,17}', 'flag' => '[1-9][0-9]{0,17}', 'mergeRequest' => '[1-9][0-9]{0,17}'])
                     ->name('patients.records.')->group(function (): void {

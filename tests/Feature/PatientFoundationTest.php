@@ -352,7 +352,7 @@ class PatientFoundationTest extends TestCase
         $this->assertDatabaseCount('patient_identifiers', 0);
         $this->assertDatabaseCount('users', 1);
         $this->assertDatabaseCount('user_roles', 0);
-        $this->assertDatabaseCount('permissions', 19);
+        $this->assertDatabaseCount('permissions', 22);
     }
 
     public function test_demographic_mass_assignment_cannot_choose_identity_access_or_attribution(): void

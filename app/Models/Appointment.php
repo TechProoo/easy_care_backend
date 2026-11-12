@@ -3,10 +3,12 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable(['first_name', 'last_name', 'phone', 'starts_at', 'ends_at', 'booking_channel',
     'visit_type', 'specialist_name', 'specialist_email'])]
@@ -43,6 +45,28 @@ class Appointment extends Model
     public function encounter(): HasOne
     {
         return $this->hasOne(Encounter::class);
+    }
+
+    public function revisions(): HasMany
+    {
+        return $this->hasMany(AppointmentRevision::class)->orderBy('version');
+    }
+
+    public function followUpLink(): HasOne
+    {
+        return $this->hasOne(AppointmentFollowUp::class);
+    }
+
+    public function followUpLinks(): HasMany
+    {
+        return $this->hasMany(AppointmentFollowUp::class, 'previous_appointment_id');
+    }
+
+    public function scopeVisibleTo(Builder $query, User $viewer): Builder
+    {
+        return $query->when(! $viewer->hasPermission('appointments.view'), fn (Builder $query): Builder => $query->whereRaw('1 = 0'))
+            ->where(fn (Builder $query): Builder => $query->whereNull('appointments.patient_id')
+                ->orWhereHas('patient', fn (Builder $query): Builder => $query->visibleTo($viewer)));
     }
 
     public function canTransitionTo(string $status): bool

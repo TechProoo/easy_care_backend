@@ -9,6 +9,8 @@ use InvalidArgumentException;
 class AuditTrail
 {
     public const ACTIONS = [
+        'appointment.created', 'appointment.updated', 'appointment.rescheduled', 'appointment.confirmed',
+        'appointment.cancelled', 'appointment.no_show', 'appointment.listed', 'appointment.viewed', 'appointment.history_viewed',
         'staff.created', 'staff.updated', 'staff.recovery_issued', 'staff.password_reset',
         'role.permission_granted', 'role.permission_revoked',
         'auth.login', 'auth.logout', 'audit.viewed', 'command.replayed',
@@ -33,7 +35,7 @@ class AuditTrail
         if (! in_array($action, self::ACTIONS, true)
             || ! in_array($outcome, ['succeeded', 'denied', 'failed'], true)
             || ! in_array($channel, ['http', 'console'], true)
-            || ! in_array($subjectType, ['staff', 'role', 'audit', 'file', 'patient'], true)) {
+            || ! in_array($subjectType, ['staff', 'role', 'audit', 'file', 'patient', 'appointment'], true)) {
             throw new InvalidArgumentException('Unknown audit event classification.');
         }
 
@@ -73,7 +75,9 @@ class AuditTrail
             'patient.created' => ['version', 'category_id', 'contact_count', 'duplicates_acknowledged'],
             'patient.updated' => ['version', 'changed_fields', 'contacts_changed'],
             'patient.flagged', 'patient.flag_resolved', 'patient.card_changed', 'patient.access_restricted', 'patient.access_restored',
-            'patient.merge_requested', 'patient.merge_approved', 'patient.merge_rejected', 'patient.merge_cancelled' => ['version', 'record_id'],
+            'patient.merge_requested', 'patient.merge_approved', 'patient.merge_rejected', 'patient.merge_cancelled',
+            'appointment.created', 'appointment.updated', 'appointment.rescheduled', 'appointment.confirmed',
+            'appointment.cancelled', 'appointment.no_show' => ['version', 'record_id'],
             default => [],
         };
 
