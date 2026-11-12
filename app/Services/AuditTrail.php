@@ -9,6 +9,8 @@ use InvalidArgumentException;
 class AuditTrail
 {
     public const ACTIONS = [
+        'appointment.attended', 'encounter.opened', 'encounter.assigned', 'encounter.reassigned', 'encounter.accepted',
+        'encounter.completed', 'encounter.cancelled', 'encounter.listed', 'encounter.viewed', 'encounter.history_viewed',
         'appointment.created', 'appointment.updated', 'appointment.rescheduled', 'appointment.confirmed',
         'appointment.cancelled', 'appointment.no_show', 'appointment.listed', 'appointment.viewed', 'appointment.history_viewed',
         'staff.created', 'staff.updated', 'staff.recovery_issued', 'staff.password_reset',
@@ -35,7 +37,7 @@ class AuditTrail
         if (! in_array($action, self::ACTIONS, true)
             || ! in_array($outcome, ['succeeded', 'denied', 'failed'], true)
             || ! in_array($channel, ['http', 'console'], true)
-            || ! in_array($subjectType, ['staff', 'role', 'audit', 'file', 'patient', 'appointment'], true)) {
+            || ! in_array($subjectType, ['staff', 'role', 'audit', 'file', 'patient', 'appointment', 'encounter'], true)) {
             throw new InvalidArgumentException('Unknown audit event classification.');
         }
 
@@ -77,7 +79,8 @@ class AuditTrail
             'patient.flagged', 'patient.flag_resolved', 'patient.card_changed', 'patient.access_restricted', 'patient.access_restored',
             'patient.merge_requested', 'patient.merge_approved', 'patient.merge_rejected', 'patient.merge_cancelled',
             'appointment.created', 'appointment.updated', 'appointment.rescheduled', 'appointment.confirmed',
-            'appointment.cancelled', 'appointment.no_show' => ['version', 'record_id'],
+            'appointment.attended', 'encounter.opened', 'encounter.assigned', 'encounter.reassigned', 'encounter.accepted',
+            'encounter.completed', 'encounter.cancelled', 'appointment.cancelled', 'appointment.no_show' => ['version', 'record_id'],
             default => [],
         };
 

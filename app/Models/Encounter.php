@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
@@ -53,6 +54,25 @@ class Encounter extends Model
     public function currentAssignment(): HasOne
     {
         return $this->hasOne(DoctorAssignment::class)->whereNull('ended_at');
+    }
+
+    public function revisions(): HasMany
+    {
+        return $this->hasMany(EncounterRevision::class)->orderBy('version');
+    }
+
+    public function scopeVisibleTo(Builder $query, User $viewer): Builder
+    {
+        if (! $viewer->is_active || ! $viewer->hasPermission('encounters.view')) {
+            return $query->whereRaw('1 = 0');
+        }
+        $query->whereHas('patient', fn (Builder $patients): Builder => $patients->visibleTo($viewer));
+        if (! $viewer->hasPermission('encounters.view_any')) {
+            $query->whereHas('assignments', fn (Builder $assignments): Builder => $assignments->where('doctor_id', $viewer->id)
+                ->where(fn (Builder $state): Builder => $state->whereNull('ended_at')->orWhere('status', 'completed')));
+        }
+
+        return $query;
     }
 
     public function canTransitionTo(string $status): bool

@@ -7,6 +7,12 @@ return [
     'files_baseline' => 'protected-files-v1',
     'reset_minutes' => 15,
     'permissions' => [
+        'encounters.view' => 'View own current clinician assignments and completed visits',
+        'encounters.view_any' => 'Extend visit visibility to all active patients and unassigned queues',
+        'encounters.arrive' => 'Verify arrival and open booked or walk-in visits',
+        'encounters.assign' => 'Assign and reassign the current visit clinician',
+        'encounters.progress' => 'Accept and complete own current clinician assignments',
+        'encounters.cancel' => 'Cancel visits before care is accepted',
         'appointments.view' => 'View bookings, booking history and the clinician booking roster',
         'appointments.create' => 'Create appointments and follow-up bookings',
         'appointments.update' => 'Edit, reschedule, confirm, cancel or mark appointments as no-show',

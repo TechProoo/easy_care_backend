@@ -138,7 +138,7 @@ class AppointmentBookings
         ];
     }
 
-    private function record(Appointment $booking, User $actor, string $operation, ?string $reason = null): void
+    public function record(Appointment $booking, User $actor, string $operation, ?string $reason = null): void
     {
         $booking->load('followUpLink');
         $revision = new AppointmentRevision;

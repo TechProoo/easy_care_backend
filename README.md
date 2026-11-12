@@ -54,8 +54,9 @@ For a foreground server, run `stop` and then `.\dev.cmd serve`. Press Ctrl+C to 
 - A read-only `files:verify` console command checks the private file/database recovery set.
 - Patient demographic/category/identifier/contact/family-link storage, with permanent number reservations and opt-in registration, search, duplicate-review and versioned editing APIs.
 - Private flags, governed restriction/restore, card/category history and two-person patient merges, with stable original records and canonical lookup.
-- Appointment, encounter and clinician-assignment storage, including bookings before registration, category-at-visit snapshots and one current clinician with retained assignment history. Booking APIs are connected to this storage; arrival and queue APIs follow in Task 23.
+- Appointment, encounter and clinician-assignment storage, including bookings before registration, category-at-visit snapshots and one current clinician with retained assignment history. Booking, arrival and queue APIs are connected to this storage.
 - Authorized booking, search, rescheduling, confirmation, cancellation, no-show and follow-up APIs, with private revision history, Lagos calendar dates and clinician interval conflict checks.
+- Verified booking arrivals and walk-in visits, clinician assignment/reassignment, acceptance and completion by the assigned clinician, protected queues and immutable visit history.
 - Private `backend/.env` is configured with the generated local database password and application key.
 
 `vendor/` contains installed PHP packages. `composer.lock` records their exact versions. `.env` and the project-local tools/database files are excluded from Git.
@@ -106,3 +107,5 @@ Transaction safeguards: staff creation/edits, recovery issuance and uploads now 
 
 
 See the [appointment API contract](docs/LOCAL_DEVELOPMENT.md#appointment-booking-and-update-apis) for opt-in permissions, required interval/offset fields, conflict responses, retained booking history and merge safeguards. Booking and queue frontend demonstrations remain pending Task 24.
+
+See the [arrival and queue API contract](docs/LOCAL_DEVELOPMENT.md#arrival-clinician-assignment-and-queue-apis) for identity verification, opt-in permissions, clinician isolation, expected versions and retry rules. Booking and queue screen integration follows in Task 24.

@@ -10,6 +10,8 @@ use App\Http\Resources\ProtectedFileResource;
 use App\Http\Resources\StaffManagementResource;
 use App\Models\Patient;
 use App\Models\Appointment;
+use App\Models\Encounter;
+use App\Http\Resources\EncounterResource;
 use App\Models\Permission;
 use App\Models\User;
 use Closure;
@@ -32,7 +34,7 @@ class IdempotentCommands
         'api.v1.patients.store', 'api.v1.patients.update',
     ];
 
-    public function __construct(private WriteTransactions $transactions, private ProtectedFiles $files, private AuditTrail $audit, private PatientRecordManagement $records, private AppointmentBookings $bookings) {}
+    public function __construct(private WriteTransactions $transactions, private ProtectedFiles $files, private AuditTrail $audit, private PatientRecordManagement $records, private AppointmentBookings $bookings, private EncounterFlow $encounters) {}
 
     /** @param Closure(): JsonResponse $operation */
     public function run(Request $request, Closure $operation): JsonResponse
@@ -40,7 +42,8 @@ class IdempotentCommands
         $route = $request->route()->getName();
         $recordWrite = PatientRecordManagement::isCommand($route);
         $appointmentWrite = AppointmentBookings::isCommand($route);
-        if (! in_array($route, self::ROUTES, true) && ! $recordWrite && ! $appointmentWrite) {
+        $encounterWrite = EncounterFlow::isCommand($route);
+        if (! in_array($route, self::ROUTES, true) && ! $recordWrite && ! $appointmentWrite && ! $encounterWrite) {
             throw new LogicException('A write route must define its command outcome and authorization.');
         }
         $key = $request->header('Idempotency-Key');
@@ -50,17 +53,17 @@ class IdempotentCommands
         $fileWrite = $route === 'api.v1.files.store';
         $patientWrite = str_starts_with($route, 'api.v1.patients.');
         $hash = $this->digest(json_encode($this->canonical([
-            'target' => $recordWrite ? ['patient' => $request->route('patient'), 'flag' => $request->route('flag'), 'merge_request' => $request->route('mergeRequest')]
-                : ($appointmentWrite ? $request->route('appointment') : ($patientWrite ? $request->route('patient') : $request->route('user')?->id)),
+            'target' => $encounterWrite ? ['appointment' => $request->route('appointment'), 'encounter' => $request->route('encounter')] : ($recordWrite ? ['patient' => $request->route('patient'), 'flag' => $request->route('flag'), 'merge_request' => $request->route('mergeRequest')]
+                : ($appointmentWrite ? $request->route('appointment') : ($patientWrite ? $request->route('patient') : $request->route('user')?->id))),
             'data' => $request->except('current_password'),
         ]), JSON_THROW_ON_ERROR));
         $keyHash = hash('sha256', $key);
 
         try {
-            return $this->transactions->run(function () use ($request, $operation, $route, $fileWrite, $patientWrite, $recordWrite, $appointmentWrite, $hash, $keyHash): JsonResponse {
+            return $this->transactions->run(function () use ($request, $operation, $route, $fileWrite, $patientWrite, $recordWrite, $appointmentWrite, $encounterWrite, $hash, $keyHash): JsonResponse {
                 // Current staff writes share this lock with console grants and recovery.
                 abort_if(Permission::query()->where('code', 'staff.manage')->lockForUpdate()->first() === null, 503);
-                if ($patientWrite || $appointmentWrite) {
+                if ($patientWrite || $appointmentWrite || $encounterWrite) {
                     abort_if(Permission::query()->where('code', 'patients.create')->lockForUpdate()->first() === null, 503);
                 }
                 $requestActor = $request->user('web');
@@ -84,7 +87,7 @@ class IdempotentCommands
                 $resource = $route === 'api.v1.staff-management.password-reset' ? $body['data']['user'] : $body['data'];
                 DB::table('idempotency_requests')->where('id', $id)->update([
                     'status' => 'completed', 'response_code' => $response->getStatusCode(),
-                    'resource_type' => $appointmentWrite ? 'appointment' : ($recordWrite ? 'patient_record' : ($patientWrite ? 'patient' : ($fileWrite ? 'file' : 'staff'))), 'resource_id' => $resource['id'],
+                    'resource_type' => $encounterWrite ? 'encounter' : ($appointmentWrite ? 'appointment' : ($recordWrite ? 'patient_record' : ($patientWrite ? 'patient' : ($fileWrite ? 'file' : 'staff')))), 'resource_id' => $resource['id'],
                     'outcome_id' => $recordWrite ? $resource['record_id'] : null,
                     'resource_version' => $resource['version'] ?? null, 'updated_at' => now('UTC'),
                 ]);
@@ -105,6 +108,11 @@ class IdempotentCommands
     private function authorize(Request $request, User $actor, bool $fileWrite): void
     {
         abort_unless($actor->is_active, 403);
+        if (EncounterFlow::isCommand($request->route()->getName())) {
+            $this->encounters->authorize($request, $actor);
+
+            return;
+        }
         if (AppointmentBookings::isCommand($request->route()->getName())) {
             $this->bookings->authorize($request, $actor);
 
@@ -161,7 +169,14 @@ class IdempotentCommands
         }
         $patientWrite = str_starts_with($request->route()->getName(), 'api.v1.patients.');
         $appointmentWrite = AppointmentBookings::isCommand($request->route()->getName());
-        if ($appointmentWrite) {
+        $encounterWrite = EncounterFlow::isCommand($request->route()->getName());
+        if ($encounterWrite) {
+            $visit = Encounter::query()->visibleTo($actor)->with(['patient', 'currentAssignment'])->lockForUpdate()->findOrFail($record->resource_id);
+            if ($visit->version !== (int) $record->resource_version) {
+                throw new WriteConflict('idempotency_outdated', 'The original save completed, but this visit has changed again. Reload its latest record.');
+            }
+            $response = (new EncounterResource($visit))->response();
+        } elseif ($appointmentWrite) {
             $booking = Appointment::query()->visibleTo($actor)->with('followUpLink')->lockForUpdate()->findOrFail($record->resource_id);
             if ($booking->version !== (int) $record->resource_version) {
                 throw new WriteConflict('idempotency_outdated', 'The original save completed, but this booking has changed again. Reload its latest record.');
@@ -186,7 +201,7 @@ class IdempotentCommands
             }
             $response = (new StaffManagementResource($user->load(['department', 'roles'])))->response();
         }
-        $this->audit->record('command.replayed', $actor->id, $appointmentWrite ? 'appointment' : ($patientWrite ? 'patient' : ($fileWrite ? 'file' : 'staff')), (int) $record->resource_id);
+        $this->audit->record('command.replayed', $actor->id, $encounterWrite ? 'encounter' : ($appointmentWrite ? 'appointment' : ($patientWrite ? 'patient' : ($fileWrite ? 'file' : 'staff'))), (int) $record->resource_id);
         $response->setStatusCode(200);
         $response->headers->set('Idempotency-Replayed', 'true');
 

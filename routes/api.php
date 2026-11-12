@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\V1\AccessControlController;
 use App\Http\Controllers\Api\V1\AppointmentController;
+use App\Http\Controllers\Api\V1\EncounterController;
 use App\Http\Controllers\Api\V1\AuditHistoryController;
 use App\Http\Controllers\Api\V1\DepartmentController;
 use App\Http\Controllers\Api\V1\HealthController;
@@ -30,6 +31,28 @@ Route::prefix('v1')->name('api.v1.')->group(function (): void {
             ->middleware('throttle:staff-recovery')->name('auth.password.reset');
 
         Route::middleware(['auth:web', EnsureStaffIsActive::class, 'auth.session'])->group(function (): void {
+            Route::middleware(['can:encounters.view', 'can:patients.view'])->group(function (): void {
+                Route::get('queues', [EncounterController::class, 'index'])->name('queues.index');
+                Route::prefix('encounters')->name('encounters.')->group(function (): void {
+                    Route::get('options', [EncounterController::class, 'options'])->name('options');
+                    Route::get('clinicians', [AppointmentController::class, 'clinicians'])
+                        ->middleware(['can:encounters.assign', 'can:encounters.view_any'])->name('clinicians');
+                    Route::get('/', [EncounterController::class, 'index'])->name('index');
+                    Route::get('{encounter}', [EncounterController::class, 'show'])->where('encounter', '[1-9][0-9]{0,17}')->name('show');
+                    Route::get('{encounter}/history', [EncounterController::class, 'history'])->where('encounter', '[1-9][0-9]{0,17}')->name('history');
+                    Route::get('{encounter}/assignments', [EncounterController::class, 'assignments'])->where('encounter', '[1-9][0-9]{0,17}')->name('assignments');
+                    Route::middleware('throttle:encounter-writes')->group(function (): void {
+                        Route::post('/', [EncounterController::class, 'write'])->middleware(['can:encounters.arrive', 'can:encounters.view_any'])->name('store');
+                        foreach (['assign', 'reassign', 'accept', 'complete', 'cancel'] as $action) {
+                            $permission = match ($action) { 'assign', 'reassign' => 'encounters.assign', 'accept', 'complete' => 'encounters.progress', 'cancel' => 'encounters.cancel' };
+                            Route::post('{encounter}/'.$action, [EncounterController::class, 'write'])->where('encounter', '[1-9][0-9]{0,17}')
+                                ->middleware('can:'.$permission)->name($action);
+                        }
+                    });
+                });
+                Route::post('appointments/{appointment}/arrive', [EncounterController::class, 'write'])->where('appointment', '[1-9][0-9]{0,17}')
+                    ->middleware(['can:appointments.view', 'can:encounters.arrive', 'can:encounters.view_any', 'throttle:encounter-writes'])->name('appointments.arrive');
+            });
             Route::prefix('appointments')->name('appointments.')->middleware('can:appointments.view')->group(function (): void {
                 Route::get('options', [AppointmentController::class, 'options'])->name('options');
                 Route::get('clinicians', [AppointmentController::class, 'clinicians'])->name('clinicians');

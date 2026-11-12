@@ -20,12 +20,15 @@ class AppointmentMigrationTest extends TestCase
         $this->seed(DatabaseSeeder::class);
         $booking = Appointment::factory()->create();
         $migration = require database_path('migrations/2026_11_12_012918_create_appointment_booking_records.php');
+        $workflow = require database_path('migrations/2026_11_12_023554_create_encounter_workflow_records.php');
         $this->assertTablesUnchanged(['users', 'roles', 'permissions', 'role_permissions', 'patients', 'patient_identifiers',
-            'appointments', 'encounters', 'doctor_assignments', 'audit_events', 'idempotency_requests'], function () use ($migration): void {
+            'appointments', 'encounters', 'doctor_assignments', 'audit_events', 'idempotency_requests'], function () use ($migration, $workflow): void {
+            $workflow->down();
             $migration->down();
             $this->assertFalse(Schema::hasTable('appointment_revisions'));
             $this->assertFalse(Schema::hasTable('appointment_follow_ups'));
             $migration->up();
+            $workflow->up();
             $this->assertDatabaseCount('appointment_revisions', 0);
             $this->assertDatabaseCount('appointment_follow_ups', 0);
         });
@@ -33,7 +36,7 @@ class AppointmentMigrationTest extends TestCase
         $link = AppointmentFollowUp::factory()->create();
         $this->assertSame('attended', $link->previousAppointment->status);
         $this->assertTrue($link->appointment->followUpLink->is($link));
-        $this->assertDatabaseCount('permissions', 22);
+        $this->assertDatabaseCount('permissions', 28);
         $this->assertDatabaseCount('role_permissions', 21);
     }
 
