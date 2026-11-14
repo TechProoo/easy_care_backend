@@ -9,6 +9,8 @@ use InvalidArgumentException;
 class AuditTrail
 {
     public const ACTIONS = [
+        'clinical.created', 'clinical.updated', 'clinical.signed', 'clinical.amended', 'clinical.voided',
+        'clinical.listed', 'clinical.viewed', 'clinical.history_viewed',
         'appointment.attended', 'encounter.opened', 'encounter.assigned', 'encounter.reassigned', 'encounter.accepted',
         'encounter.completed', 'encounter.cancelled', 'encounter.listed', 'encounter.viewed', 'encounter.history_viewed',
         'appointment.created', 'appointment.updated', 'appointment.rescheduled', 'appointment.confirmed',
@@ -37,7 +39,7 @@ class AuditTrail
         if (! in_array($action, self::ACTIONS, true)
             || ! in_array($outcome, ['succeeded', 'denied', 'failed'], true)
             || ! in_array($channel, ['http', 'console'], true)
-            || ! in_array($subjectType, ['staff', 'role', 'audit', 'file', 'patient', 'appointment', 'encounter'], true)) {
+            || ! in_array($subjectType, ['staff', 'role', 'audit', 'file', 'patient', 'appointment', 'encounter', 'clinical'], true)) {
             throw new InvalidArgumentException('Unknown audit event classification.');
         }
 
@@ -76,6 +78,7 @@ class AuditTrail
             'file.integrity_checked' => ['checked', 'missing', 'corrupt', 'orphaned'],
             'patient.created' => ['version', 'category_id', 'contact_count', 'duplicates_acknowledged'],
             'patient.updated' => ['version', 'changed_fields', 'contacts_changed'],
+            'clinical.created', 'clinical.updated', 'clinical.signed', 'clinical.amended', 'clinical.voided',
             'patient.flagged', 'patient.flag_resolved', 'patient.card_changed', 'patient.access_restricted', 'patient.access_restored',
             'patient.merge_requested', 'patient.merge_approved', 'patient.merge_rejected', 'patient.merge_cancelled',
             'appointment.created', 'appointment.updated', 'appointment.rescheduled', 'appointment.confirmed',

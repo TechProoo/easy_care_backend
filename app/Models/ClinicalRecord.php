@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 #[Fillable([])]
@@ -18,6 +19,24 @@ class ClinicalRecord extends Model
     protected $dateFormat = 'Y-m-d H:i:s.u';
 
     protected $attributes = ['status' => 'draft', 'version' => 1];
+
+    public const ENTRY_KINDS = ['vitals', 'entry', 'diagnosis', 'procedure'];
+
+    public function scopeVisibleTo(Builder $query, User $viewer): Builder
+    {
+        if (! $viewer->is_active || ! $viewer->hasPermission('clinical.view')) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query->whereIn($query->getModel()->qualifyColumn('kind'), self::ENTRY_KINDS)
+            ->whereHas('encounter', fn (Builder $visits): Builder => $visits->visibleTo($viewer))
+            ->where(fn (Builder $records): Builder => $records->where('status', '<>', 'draft')->orWhere('authored_by', $viewer->id));
+    }
+
+    public function revisions(): HasMany
+    {
+        return $this->hasMany(ClinicalRevision::class)->orderBy('version');
+    }
 
     public function scopeFinalized(Builder $query): Builder
     {

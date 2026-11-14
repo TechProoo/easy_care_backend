@@ -21,9 +21,9 @@ return Application::configure(basePath: dirname(__DIR__))
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->report(function (QueryException $exception): ?bool {
-            if (request()->is('api/v1/patients', 'api/v1/patients/*', 'api/v1/appointments', 'api/v1/appointments/*', 'api/v1/encounters', 'api/v1/encounters/*', 'api/v1/queues')) {
-                logger()->error(request()->is('api/v1/encounters', 'api/v1/encounters/*', 'api/v1/queues') ? 'An encounter database operation failed.' : (request()->is('api/v1/appointments', 'api/v1/appointments/*')
-                    ? 'An appointment database operation failed.' : 'A patient database operation failed.'));
+            if (request()->is('api/v1/clinical/*', 'api/v1/patients', 'api/v1/patients/*', 'api/v1/appointments', 'api/v1/appointments/*', 'api/v1/encounters', 'api/v1/encounters/*', 'api/v1/queues')) {
+                logger()->error(request()->is('api/v1/clinical/*', 'api/v1/encounters/*/clinical*') ? 'A clinical database operation failed.' : (request()->is('api/v1/encounters', 'api/v1/encounters/*', 'api/v1/queues') ? 'An encounter database operation failed.' : (request()->is('api/v1/appointments', 'api/v1/appointments/*')
+                    ? 'An appointment database operation failed.' : 'A patient database operation failed.')));
 
                 return false;
             }

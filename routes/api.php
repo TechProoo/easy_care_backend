@@ -2,9 +2,10 @@
 
 use App\Http\Controllers\Api\V1\AccessControlController;
 use App\Http\Controllers\Api\V1\AppointmentController;
-use App\Http\Controllers\Api\V1\EncounterController;
 use App\Http\Controllers\Api\V1\AuditHistoryController;
+use App\Http\Controllers\Api\V1\ClinicalController;
 use App\Http\Controllers\Api\V1\DepartmentController;
+use App\Http\Controllers\Api\V1\EncounterController;
 use App\Http\Controllers\Api\V1\HealthController;
 use App\Http\Controllers\Api\V1\PatientController;
 use App\Http\Controllers\Api\V1\PatientRecordController;
@@ -31,6 +32,24 @@ Route::prefix('v1')->name('api.v1.')->group(function (): void {
             ->middleware('throttle:staff-recovery')->name('auth.password.reset');
 
         Route::middleware(['auth:web', EnsureStaffIsActive::class, 'auth.session'])->group(function (): void {
+            Route::middleware(['can:clinical.view', 'can:encounters.view', 'can:patients.view'])->name('clinical.')->group(function (): void {
+                Route::get('clinical/options', [ClinicalController::class, 'options'])->name('options');
+                Route::get('clinical/templates', [ClinicalController::class, 'templates'])->name('templates');
+                Route::prefix('encounters/{encounter}/clinical')->where(['encounter' => '[1-9][0-9]{0,17}', 'clinicalRecord' => '[1-9][0-9]{0,17}'])
+                    ->group(function (): void {
+                        Route::get('/', [ClinicalController::class, 'index'])->name('index');
+                        Route::get('{clinicalRecord}', [ClinicalController::class, 'show'])->name('show');
+                        Route::get('{clinicalRecord}/history', [ClinicalController::class, 'history'])->middleware('can:clinical.review')->name('history');
+                        Route::middleware(['can:clinical.write', 'throttle:clinical-writes'])->group(function (): void {
+                            Route::post('/', [ClinicalController::class, 'write'])->name('store');
+                            Route::patch('{clinicalRecord}', [ClinicalController::class, 'write'])->name('update');
+                            Route::post('{clinicalRecord}/sign', [ClinicalController::class, 'write'])->middleware('can:clinical.sign')->name('sign');
+                            Route::post('{clinicalRecord}/amend', [ClinicalController::class, 'write'])
+                                ->middleware(['can:clinical.amend', 'can:clinical.sign'])->name('amend');
+                            Route::post('{clinicalRecord}/void', [ClinicalController::class, 'write'])->middleware('can:clinical.void')->name('void');
+                        });
+                    });
+            });
             Route::middleware(['can:encounters.view', 'can:patients.view'])->group(function (): void {
                 Route::get('queues', [EncounterController::class, 'index'])->name('queues.index');
                 Route::prefix('encounters')->name('encounters.')->group(function (): void {

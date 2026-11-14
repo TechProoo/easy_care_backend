@@ -25,15 +25,18 @@ class ClinicalMigrationTest extends TestCase
         $migration = require database_path('migrations/2026_11_12_042242_create_clinical_storage_tables.php');
         $tables = ['clinical_templates', 'clinical_template_versions', 'clinical_records', 'vital_signs',
             'clinical_entries', 'diagnoses', 'clinical_procedures', 'prescriptions', 'prescription_items'];
+        $review = require database_path('migrations/2026_11_12_052540_create_clinical_revision_records.php');
         $this->assertTablesUnchanged(['users', 'roles', 'permissions', 'role_permissions', 'permission_baselines',
             'patients', 'patient_identifiers', 'patient_categories', 'appointments', 'appointment_revisions',
             'appointment_follow_ups', 'encounters', 'doctor_assignments', 'encounter_revisions', 'files', 'audit_events',
-            'idempotency_requests'], function () use ($migration, $tables): void {
+            'idempotency_requests'], function () use ($migration, $tables, $review): void {
+            $review->down();
             $migration->down();
             foreach ($tables as $table) {
                 $this->assertFalse(Schema::hasTable($table));
             }
             $migration->up();
+            $review->up();
             foreach ($tables as $table) {
                 $this->assertDatabaseCount($table, 0);
             }
@@ -44,13 +47,15 @@ class ClinicalMigrationTest extends TestCase
             'finalized_at' => now('UTC')])->save();
         $this->assertTrue($entry->record->fresh()->entry->is($entry));
         ClinicalRecord::factory()->amending($entry->record)->create();
+        $review->down();
         $migration->down();
         $migration->up();
+        $review->up();
         $this->seed(DatabaseSeeder::class);
         foreach ($tables as $table) {
             $this->assertDatabaseCount($table, 0);
         }
-        $this->assertDatabaseCount('permissions', 28);
+        $this->assertDatabaseCount('permissions', 34);
         $this->assertDatabaseCount('role_permissions', 21);
         $this->assertDatabaseCount('permission_baselines', 4);
     }

@@ -7,6 +7,12 @@ return [
     'files_baseline' => 'protected-files-v1',
     'reset_minutes' => 15,
     'permissions' => [
+        'clinical.view' => 'View signed clinical entries and own drafts within visible visits',
+        'clinical.write' => 'Create and edit own encounter-scoped clinical drafts',
+        'clinical.sign' => 'Sign own clinical drafts after reauthentication',
+        'clinical.amend' => 'Create reasoned signed corrections within active visible visits',
+        'clinical.void' => 'Void own drafts or retract signed clinical records with a reason',
+        'clinical.review' => 'Review private clinical revision history within visible visits',
         'encounters.view' => 'View own current clinician assignments and completed visits',
         'encounters.view_any' => 'Extend visit visibility to all active patients and unassigned queues',
         'encounters.arrive' => 'Verify arrival and open booked or walk-in visits',
