@@ -52,7 +52,7 @@ class VisitMigrationTest extends TestCase
         $assignment = DoctorAssignment::factory()->for($visit)->create(['doctor_id' => $staff->id, 'assigned_by' => $staff->id]);
         $this->assertTrue($visit->currentAssignment->is($assignment));
         $this->assertDatabaseHas('patients', ['id' => $patient->id, 'mrn' => $patient->mrn]);
-        $this->assertDatabaseCount('permissions', 34);
+        $this->assertDatabaseCount('permissions', 41);
         $this->assertDatabaseCount('role_permissions', 21);
     }
 

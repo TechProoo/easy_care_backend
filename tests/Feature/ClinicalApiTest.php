@@ -443,6 +443,19 @@ class ClinicalApiTest extends TestCase
         $this->assertNoSuccessfulAudit('clinical.amended');
     }
 
+    #[DataProvider('unicodeNarratives')]
+    public function test_unicode_text_respects_clinical_narrative_storage_limits(string $kind, string $field): void
+    {
+        $payload = array_replace($this->payload($kind), [$field => str_repeat("\u{1F48A}", 20000)]);
+        $this->assertTablesUnchanged($this->tables(), fn () => $this->create($kind, ['payload' => $payload]))
+            ->assertUnprocessable()->assertJsonValidationErrors('payload.'.$field);
+    }
+
+    public static function unicodeNarratives(): array
+    {
+        return [['entry', 'content'], ['procedure', 'remarks'], ['procedure', 'findings']];
+    }
+
     private function path(?int $id = null): string
     {
         return '/api/v1/encounters/'.$this->visit->id.'/clinical'.($id === null ? '' : '/'.$id);

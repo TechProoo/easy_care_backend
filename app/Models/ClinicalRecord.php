@@ -38,6 +38,17 @@ class ClinicalRecord extends Model
         return $this->hasMany(ClinicalRevision::class)->orderBy('version');
     }
 
+    public function scopePrescriptionsVisibleTo(Builder $query, User $viewer): Builder
+    {
+        if (! $viewer->is_active || ! $viewer->hasPermission('prescriptions.view')) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query->where($query->getModel()->qualifyColumn('kind'), 'prescription')
+            ->whereHas('encounter', fn (Builder $visits): Builder => $visits->visibleTo($viewer))
+            ->where(fn (Builder $records): Builder => $records->where('status', '<>', 'draft')->orWhere('authored_by', $viewer->id));
+    }
+
     public function scopeFinalized(Builder $query): Builder
     {
         return $query->whereIn($query->getModel()->qualifyColumn('status'), ['signed', 'voided']);

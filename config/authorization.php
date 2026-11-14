@@ -7,6 +7,13 @@ return [
     'files_baseline' => 'protected-files-v1',
     'reset_minutes' => 15,
     'permissions' => [
+        'prescriptions.view' => 'View signed or voided prescriptions and own drafts within visible visits',
+        'prescriptions.write' => 'Create and edit own prescription drafts',
+        'prescriptions.sign' => 'Sign own prescription drafts after reauthentication',
+        'prescriptions.amend' => 'Correct, stop or complete signed prescriptions with a reason',
+        'prescriptions.void' => 'Void own prescription drafts or retract signed prescriptions',
+        'prescriptions.review' => 'Review private revisions of visible prescriptions',
+        'clinical.history.view' => 'Read finalized patient history within existing encounter and record permissions',
         'clinical.view' => 'View signed clinical entries and own drafts within visible visits',
         'clinical.write' => 'Create and edit own encounter-scoped clinical drafts',
         'clinical.sign' => 'Sign own clinical drafts after reauthentication',

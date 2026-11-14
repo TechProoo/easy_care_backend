@@ -88,6 +88,11 @@ class ClinicalPayloads
             $prefixed['payload.'.$field] = $constraints;
         }
         Validator::make(['payload' => $data], $prefixed)->validate();
+        foreach (['content', 'remarks', 'findings'] as $field) {
+            if (is_string($data[$field] ?? null) && strlen($data[$field]) > 65535) {
+                $this->invalid($field, 'This narrative exceeds the supported text storage size.');
+            }
+        }
         foreach (self::DECIMALS as $field => [$digits, $scale]) {
             if (! array_key_exists($field, $data) || $data[$field] === null) {
                 continue;

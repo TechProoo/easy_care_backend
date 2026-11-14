@@ -36,7 +36,7 @@ class EncounterMigrationTest extends TestCase
         });
         $revision = EncounterRevision::factory()->for($visit)->create();
         $this->assertTrue($revision->encounter->is($visit));
-        $this->assertDatabaseCount('permissions', 34);
+        $this->assertDatabaseCount('permissions', 41);
         $this->assertDatabaseCount('role_permissions', 21);
     }
 

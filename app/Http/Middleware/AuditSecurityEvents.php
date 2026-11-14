@@ -19,6 +19,17 @@ class AuditSecurityEvents
         $response = $next($request);
         $status = $response->getStatusCode();
         $action = match ($request->route()?->getName()) {
+            'api.v1.prescriptions.store' => 'prescription.created',
+            'api.v1.prescriptions.update' => 'prescription.updated',
+            'api.v1.prescriptions.sign' => 'prescription.signed',
+            'api.v1.prescriptions.amend' => 'prescription.amended',
+            'api.v1.prescriptions.void' => 'prescription.voided',
+            'api.v1.prescriptions.stop' => 'prescription.stopped',
+            'api.v1.prescriptions.complete' => 'prescription.completed',
+            'api.v1.prescriptions.index' => 'prescription.listed',
+            'api.v1.prescriptions.show' => 'prescription.viewed',
+            'api.v1.prescriptions.history' => 'prescription.history_viewed',
+            'api.v1.patients.history' => 'patient.history_viewed',
             'api.v1.clinical.store' => 'clinical.created',
             'api.v1.clinical.update' => 'clinical.updated',
             'api.v1.clinical.sign' => 'clinical.signed',
@@ -70,7 +81,7 @@ class AuditSecurityEvents
         if ($action !== null && $status >= 400) {
             $target = $request->route('user');
             $fileId = $request->route('file');
-            $isClinical = str_starts_with($action, 'clinical.');
+            $isClinical = str_starts_with($action, 'clinical.') || str_starts_with($action, 'prescription.');
             $clinicalId = $request->route('clinicalRecord');
             $isFile = str_starts_with($action, 'file.');
             $isPatient = str_starts_with($action, 'patient.');

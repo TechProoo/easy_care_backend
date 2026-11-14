@@ -8,7 +8,9 @@ use App\Http\Controllers\Api\V1\DepartmentController;
 use App\Http\Controllers\Api\V1\EncounterController;
 use App\Http\Controllers\Api\V1\HealthController;
 use App\Http\Controllers\Api\V1\PatientController;
+use App\Http\Controllers\Api\V1\PatientHistoryController;
 use App\Http\Controllers\Api\V1\PatientRecordController;
+use App\Http\Controllers\Api\V1\PrescriptionController;
 use App\Http\Controllers\Api\V1\ProtectedFileController;
 use App\Http\Controllers\Api\V1\StaffDirectoryController;
 use App\Http\Controllers\Api\V1\StaffManagementController;
@@ -32,6 +34,27 @@ Route::prefix('v1')->name('api.v1.')->group(function (): void {
             ->middleware('throttle:staff-recovery')->name('auth.password.reset');
 
         Route::middleware(['auth:web', EnsureStaffIsActive::class, 'auth.session'])->group(function (): void {
+            Route::get('patients/{patient}/history', PatientHistoryController::class)->where('patient', '[1-9][0-9]{0,17}')
+                ->middleware(['can:patients.view', 'can:encounters.view', 'can:clinical.history.view'])->name('patients.history');
+            Route::middleware(['can:prescriptions.view', 'can:encounters.view', 'can:patients.view'])->name('prescriptions.')->group(function (): void {
+                Route::get('prescriptions/options', [PrescriptionController::class, 'options'])->name('options');
+                Route::prefix('encounters/{encounter}/prescriptions')->where(['encounter' => '[1-9][0-9]{0,17}', 'clinicalRecord' => '[1-9][0-9]{0,17}'])
+                    ->group(function (): void {
+                        Route::get('/', [PrescriptionController::class, 'index'])->name('index');
+                        Route::get('{clinicalRecord}', [PrescriptionController::class, 'show'])->name('show');
+                        Route::get('{clinicalRecord}/history', [PrescriptionController::class, 'history'])->middleware('can:prescriptions.review')->name('history');
+                        Route::middleware(['can:prescriptions.write', 'throttle:clinical-writes'])->group(function (): void {
+                            Route::post('/', [PrescriptionController::class, 'write'])->name('store');
+                            Route::patch('{clinicalRecord}', [PrescriptionController::class, 'write'])->name('update');
+                            Route::post('{clinicalRecord}/sign', [PrescriptionController::class, 'write'])->middleware('can:prescriptions.sign')->name('sign');
+                            foreach (['amend', 'stop', 'complete'] as $action) {
+                                Route::post('{clinicalRecord}/'.$action, [PrescriptionController::class, 'write'])
+                                    ->middleware(['can:prescriptions.amend', 'can:prescriptions.sign'])->name($action);
+                            }
+                            Route::post('{clinicalRecord}/void', [PrescriptionController::class, 'write'])->middleware('can:prescriptions.void')->name('void');
+                        });
+                    });
+            });
             Route::middleware(['can:clinical.view', 'can:encounters.view', 'can:patients.view'])->name('clinical.')->group(function (): void {
                 Route::get('clinical/options', [ClinicalController::class, 'options'])->name('options');
                 Route::get('clinical/templates', [ClinicalController::class, 'templates'])->name('templates');

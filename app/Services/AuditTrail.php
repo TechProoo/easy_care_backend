@@ -9,6 +9,9 @@ use InvalidArgumentException;
 class AuditTrail
 {
     public const ACTIONS = [
+        'prescription.created', 'prescription.updated', 'prescription.signed', 'prescription.amended', 'prescription.voided',
+        'prescription.stopped', 'prescription.completed', 'prescription.listed', 'prescription.viewed', 'prescription.history_viewed',
+        'patient.history_viewed',
         'clinical.created', 'clinical.updated', 'clinical.signed', 'clinical.amended', 'clinical.voided',
         'clinical.listed', 'clinical.viewed', 'clinical.history_viewed',
         'appointment.attended', 'encounter.opened', 'encounter.assigned', 'encounter.reassigned', 'encounter.accepted',
@@ -78,6 +81,8 @@ class AuditTrail
             'file.integrity_checked' => ['checked', 'missing', 'corrupt', 'orphaned'],
             'patient.created' => ['version', 'category_id', 'contact_count', 'duplicates_acknowledged'],
             'patient.updated' => ['version', 'changed_fields', 'contacts_changed'],
+            'prescription.created', 'prescription.updated', 'prescription.signed', 'prescription.amended', 'prescription.voided',
+            'prescription.stopped', 'prescription.completed',
             'clinical.created', 'clinical.updated', 'clinical.signed', 'clinical.amended', 'clinical.voided',
             'patient.flagged', 'patient.flag_resolved', 'patient.card_changed', 'patient.access_restricted', 'patient.access_restored',
             'patient.merge_requested', 'patient.merge_approved', 'patient.merge_rejected', 'patient.merge_cancelled',

@@ -1,6 +1,6 @@
 # EasyCare backend
 
-Laravel PHP backend for the EasyCare React application. Staff sessions, patient management, booking/visit workflows and encounter-scoped clinical entry/review APIs are implemented. The saved-patient and visit workspaces are connected; clinical screen integration and hospital acceptance remain open.
+Laravel PHP backend for the EasyCare React application. Staff sessions, patient management, booking/visit workflows, clinical entry/review, prescribing and scoped patient-history APIs are implemented. The saved-patient and visit workspaces are connected; clinical screen integration and hospital acceptance remain open.
 
 ## Local Windows setup
 
@@ -57,7 +57,7 @@ For a foreground server, run `stop` and then `.\dev.cmd serve`. Press Ctrl+C to 
 - Appointment, encounter and clinician-assignment storage, including bookings before registration, category-at-visit snapshots and one current clinician with retained assignment history. Booking, arrival and queue APIs are connected to this storage.
 - Authorized booking, search, rescheduling, confirmation, cancellation, no-show and follow-up APIs, with private revision history, Lagos calendar dates and clinician interval conflict checks.
 - Verified booking arrivals and walk-in visits, clinician assignment/reassignment, acceptance and completion by the assigned clinician, protected queues and immutable visit history.
-- Encounter-scoped clinical storage and entry/review APIs for versioned notes, vitals, diagnoses and procedures. Own drafts, reauthenticated signing, reasoned corrections/retractions and private revision history use opt-in permissions and atomic saves. Prescribing/history APIs and clinical screen integration remain Tasks 27-28; see the [clinical API contract](docs/LOCAL_DEVELOPMENT.md#clinical-entry-and-review-apis).
+- Encounter-scoped clinical and prescribing APIs for notes, vitals, diagnoses, procedures and ordered medication snapshots. Own drafts, signing, corrections, retractions and prescription stop/completion use opt-in permissions, immutable history and atomic saves. Patient history reads existing finalized records within encounter and record permissions. Clinical screen integration remains Task 28; see the [clinical contract](docs/LOCAL_DEVELOPMENT.md#clinical-entry-and-review-apis) and [prescribing/history contract](docs/LOCAL_DEVELOPMENT.md#prescriptions-and-patient-history-apis).
 - Private `backend/.env` is configured with the generated local database password and application key.
 
 `vendor/` contains installed PHP packages. `composer.lock` records their exact versions. `.env` and the project-local tools/database files are excluded from Git.
@@ -102,7 +102,7 @@ See [local development notes](docs/LOCAL_DEVELOPMENT.md) for database setup, tes
 - [Proposed MySQL schema](docs/architecture/schema.mysql.sql)
 - [Frontend/database review](docs/architecture/Frontend_Database_Review.md)
 
-The architecture and frontend review are design documents dated 4 November 2026. The Laravel development foundation was installed on 6 November 2026. The full 85-table schema remains a proposal; application migrations implement staff/roles, auditing, private files, command confirmations, patients, visits and clinical storage alongside Laravel's runtime tables. Patient and visit screens use saved records. Clinical entry/review APIs are available; prescribing/history, clinical screens and inventory/financial workflows follow their checklist stages. See the [patient API contract](docs/LOCAL_DEVELOPMENT.md#patient-registration-search-and-editing-apis), [visit storage contract](docs/LOCAL_DEVELOPMENT.md#appointment-encounter-and-assignment-storage) and [clinical API contract](docs/LOCAL_DEVELOPMENT.md#clinical-entry-and-review-apis).
+The architecture and frontend review are design documents dated 4 November 2026. The Laravel development foundation was installed on 6 November 2026. The full 85-table schema remains a proposal; application migrations implement staff/roles, auditing, private files, command confirmations, patients, visits and clinical storage alongside Laravel's runtime tables. Patient and visit screens use saved records. Clinical entry/review, prescribing and patient-history APIs are available; clinical screens and inventory/financial workflows follow their checklist stages. See the [patient API contract](docs/LOCAL_DEVELOPMENT.md#patient-registration-search-and-editing-apis), [visit storage contract](docs/LOCAL_DEVELOPMENT.md#appointment-encounter-and-assignment-storage) and [prescribing/history contract](docs/LOCAL_DEVELOPMENT.md#prescriptions-and-patient-history-apis).
 
 Transaction safeguards: staff creation/edits, recovery issuance and uploads now require a per-submission `Idempotency-Key`. Database changes, audit and command completion commit together; exact retries confirm an existing resource and stale versions remain rejected. See [transaction and retry rules](docs/LOCAL_DEVELOPMENT.md#transaction-and-retry-rules) for the header, outcomes, lock order and file-recovery limits.
 

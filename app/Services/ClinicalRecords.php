@@ -14,6 +14,7 @@ use App\Models\Permission;
 use App\Models\User;
 use App\Models\VitalSign;
 use Carbon\CarbonInterface;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Hash;
@@ -22,11 +23,31 @@ use Illuminate\Validation\ValidationException;
 class ClinicalRecords
 {
     public const COMMANDS = ['api.v1.clinical.store', 'api.v1.clinical.update', 'api.v1.clinical.sign',
-        'api.v1.clinical.amend', 'api.v1.clinical.void'];
+        'api.v1.clinical.amend', 'api.v1.clinical.void', 'api.v1.prescriptions.store', 'api.v1.prescriptions.update',
+        'api.v1.prescriptions.sign', 'api.v1.prescriptions.amend', 'api.v1.prescriptions.void',
+        'api.v1.prescriptions.stop', 'api.v1.prescriptions.complete'];
 
     public const LOAD = ['vitals', 'entry.templateVersion.template', 'diagnosis', 'procedure', 'author:id,name', 'finalizedBy:id,name'];
 
-    public function __construct(private WriteTransactions $transactions, private ClinicalPayloads $payloads, private AuditTrail $audit) {}
+    public function __construct(private WriteTransactions $transactions, private ClinicalPayloads $payloads,
+        private AuditTrail $audit, private PrescriptionPayloads $prescriptions) {}
+
+    public static function isPrescription(Request $request): bool
+    {
+        return str_starts_with($request->route()->getName(), 'api.v1.prescriptions.');
+    }
+
+    public static function visibleFor(Request $request, User $actor): Builder
+    {
+        return self::isPrescription($request) ? ClinicalRecord::query()->prescriptionsVisibleTo($actor)
+            : ClinicalRecord::query()->visibleTo($actor);
+    }
+
+    /** @return list<string> */
+    public static function relationsFor(Request $request): array
+    {
+        return self::isPrescription($request) ? ['prescription.items', 'author:id,name', 'finalizedBy:id,name'] : self::LOAD;
+    }
 
     public static function isCommand(string $route): bool
     {
@@ -41,20 +62,21 @@ class ClinicalRecords
     public function authorize(Request $request, User $actor): void
     {
         abort_unless($actor->is_active, 403);
-        foreach (['patients.view', 'encounters.view', 'clinical.view', 'clinical.write'] as $permission) {
+        $prefix = self::isPrescription($request) ? 'prescriptions' : 'clinical';
+        foreach (['patients.view', 'encounters.view', $prefix.'.view', $prefix.'.write'] as $permission) {
             Gate::forUser($actor)->authorize($permission);
         }
         $action = self::action($request);
-        if (in_array($action, ['sign', 'amend'], true)) {
-            Gate::forUser($actor)->authorize('clinical.sign');
+        if (in_array($action, ['sign', 'amend', 'stop', 'complete'], true)) {
+            Gate::forUser($actor)->authorize($prefix.'.sign');
         }
-        if ($action === 'amend') {
-            Gate::forUser($actor)->authorize('clinical.amend');
+        if (in_array($action, ['amend', 'stop', 'complete'], true)) {
+            Gate::forUser($actor)->authorize($prefix.'.amend');
         }
         if ($action === 'void') {
-            Gate::forUser($actor)->authorize('clinical.void');
+            Gate::forUser($actor)->authorize($prefix.'.void');
         }
-        if (in_array($action, ['sign', 'amend', 'void'], true)) {
+        if (in_array($action, ['sign', 'amend', 'void', 'stop', 'complete'], true)) {
             $password = $request->input('current_password');
             if (! is_string($password) || strlen($password) > 1024 || ! Hash::check($password, $actor->password)) {
                 throw ValidationException::withMessages(['current_password' => ['Your current password is incorrect.']]);
@@ -65,17 +87,17 @@ class ClinicalRecords
         $visit = Encounter::query()->visibleTo($actor)->lockForUpdate()->findOrFail($request->route('encounter'));
         $request->attributes->set('clinical_encounter', $visit);
         if ($action !== 'store') {
-            $record = ClinicalRecord::query()->visibleTo($actor)->where('encounter_id', $visit->id)
+            $record = self::visibleFor($request, $actor)->where('encounter_id', $visit->id)
                 ->lockForUpdate()->findOrFail($request->route('clinicalRecord'));
             if (in_array($action, ['update', 'sign'], true) || ($action === 'void' && $record->status === 'draft')) {
                 abort_unless($record->authored_by === $actor->id, 403);
             }
             if ($record->amends_id !== null && in_array($action, ['update', 'sign'], true)) {
-                Gate::forUser($actor)->authorize('clinical.amend');
+                Gate::forUser($actor)->authorize($prefix.'.amend');
             }
             if ($action === 'void' && $record->status === 'signed') {
-                Gate::forUser($actor)->authorize('clinical.amend');
-                Gate::forUser($actor)->authorize('clinical.sign');
+                Gate::forUser($actor)->authorize($prefix.'.amend');
+                Gate::forUser($actor)->authorize($prefix.'.sign');
             }
             $request->attributes->set('clinical_record', $record);
         }
@@ -105,14 +127,15 @@ class ClinicalRecords
                 $this->version($record->version, $data['version']);
             }
             if ($action === 'store') {
-                $payload = $this->payloads->validate($data['kind'], $data['payload'], $visit, $actor, false);
-                $record = $this->draft($visit, $actor, $data['kind'], $time);
+                $kind = self::isPrescription($request) ? 'prescription' : $data['kind'];
+                $payload = $this->validatePayload($kind, $data['payload'], $visit, $actor, false);
+                $record = $this->draft($visit, $actor, $kind, $time);
                 $this->writePayload($record, $payload);
                 $this->record($record, 'created');
             } elseif ($action === 'update') {
                 $this->draftOnly($record);
-                $payload = $this->payloads->validate($record->kind, $data['payload'], $visit, $actor, false, $record);
-                if ($payload == ClinicalPayloads::stored($record)) {
+                $payload = $this->validatePayload($record->kind, $data['payload'], $visit, $actor, false, $record);
+                if ($payload == self::storedPayload($record)) {
                     throw new WriteConflict('clinical_unchanged', 'No clinical values have changed.');
                 }
                 $this->writePayload($record, $payload);
@@ -120,21 +143,29 @@ class ClinicalRecords
                 $this->record($record, 'updated');
             } elseif ($action === 'sign') {
                 $this->draftOnly($record);
-                $this->payloads->validate($record->kind, [], $visit, $actor, true, $record);
+                $this->validatePayload($record->kind, [], $visit, $actor, true, $record);
                 $record->forceFill(['status' => 'signed', 'version' => $record->version + 1,
                     'finalized_by' => $actor->id, 'finalized_at' => $time])->save();
                 $this->record($record, 'signed');
-            } elseif ($action === 'amend') {
+            } elseif (in_array($action, ['amend', 'stop', 'complete'], true)) {
                 $this->signedHead($record);
-                $payload = $this->payloads->validate($record->kind, $data['payload'], $visit, $actor, true, $record);
-                if ($payload == ClinicalPayloads::stored($record)) {
+                if ($action === 'amend') {
+                    $payload = $this->validatePayload($record->kind, $data['payload'], $visit, $actor, true, $record);
+                } else {
+                    $payload = PrescriptionPayloads::stored($record);
+                    if (($payload['order_status'] ?? null) !== 'active') {
+                        throw new WriteConflict('prescription_status_finalized', 'Only a current active prescription can be stopped or completed.');
+                    }
+                    $payload['order_status'] = $action === 'stop' ? 'stopped' : 'completed';
+                }
+                if ($payload == self::storedPayload($record)) {
                     throw new WriteConflict('clinical_unchanged', 'Change the clinical values before submitting a correction.');
                 }
                 $replacement = $this->draft($visit, $actor, $record->kind, $time, $record, $data['reason']);
                 $this->writePayload($replacement, $payload);
                 $this->record($replacement, 'created', audit: false);
                 $replacement->forceFill(['status' => 'signed', 'version' => 2, 'finalized_by' => $actor->id, 'finalized_at' => $time])->save();
-                $this->record($replacement, 'amended', $data['reason']);
+                $this->record($replacement, 'amended', $data['reason'], auditAction: $action === 'amend' ? null : 'prescription.'.($action === 'stop' ? 'stopped' : 'completed'));
                 $record = $replacement;
             } else {
                 if ($record->status === 'draft') {
@@ -151,7 +182,7 @@ class ClinicalRecords
                 $this->record($record, 'voided', $data['reason']);
             }
 
-            return $record->refresh()->load(self::LOAD);
+            return $record->refresh()->load(self::relationsFor($request));
         });
     }
 
@@ -161,7 +192,20 @@ class ClinicalRecords
         return $record->only(['id', 'patient_id', 'encounter_id', 'kind', 'status', 'version', 'authored_by', 'finalized_by',
             'amends_id', 'amendment_reason', 'void_reason']) + ['recorded_at' => $record->recorded_at->toISOString(),
             'finalized_at' => $record->finalized_at?->toISOString(),
-            'payload' => in_array($record->kind, ClinicalRecord::ENTRY_KINDS, true) ? ClinicalPayloads::stored($record) : []];
+            'payload' => self::storedPayload($record)];
+    }
+
+    /** @return array<string, mixed> */
+    public static function storedPayload(ClinicalRecord $record): array
+    {
+        return $record->kind === 'prescription' ? PrescriptionPayloads::stored($record) : ClinicalPayloads::stored($record);
+    }
+
+    /** @param array<string, mixed> $input @return array<string, mixed> */
+    private function validatePayload(string $kind, array $input, Encounter $visit, User $actor, bool $sign, ?ClinicalRecord $original = null): array
+    {
+        return $kind === 'prescription' ? $this->prescriptions->validate($input, $sign, $original)
+            : $this->payloads->validate($kind, $input, $visit, $actor, $sign, $original);
     }
 
     private function draft(Encounter $visit, User $actor, string $kind, CarbonInterface $time, ?ClinicalRecord $original = null, ?string $reason = null): ClinicalRecord
@@ -176,6 +220,11 @@ class ClinicalRecords
     /** @param array<string, mixed> $payload */
     private function writePayload(ClinicalRecord $record, array $payload): void
     {
+        if ($record->kind === 'prescription') {
+            $this->prescriptions->write($record, $payload);
+
+            return;
+        }
         $class = match ($record->kind) { 'vitals' => VitalSign::class, 'entry' => ClinicalEntry::class,
             'diagnosis' => Diagnosis::class, 'procedure' => ClinicalProcedure::class };
         $row = $class::query()->find($record->id) ?? new $class;
@@ -185,13 +234,14 @@ class ClinicalRecords
         }
     }
 
-    private function record(ClinicalRecord $record, string $operation, ?string $reason = null, bool $audit = true): void
+    private function record(ClinicalRecord $record, string $operation, ?string $reason = null, bool $audit = true, ?string $auditAction = null): void
     {
         $revision = new ClinicalRevision;
         $revision->forceFill(['clinical_record_id' => $record->id, 'version' => $record->version, 'operation' => $operation,
             'actor_id' => $record->authored_by, 'reason' => $reason, 'snapshot' => self::snapshot($record), 'recorded_at' => now('UTC')])->save();
         if ($audit) {
-            $this->audit->record('clinical.'.$operation, $record->authored_by, 'clinical', $record->id,
+            $prefix = $record->kind === 'prescription' ? 'prescription' : 'clinical';
+            $this->audit->record($auditAction ?? $prefix.'.'.$operation, $record->authored_by, 'clinical', $record->id,
                 ['version' => $record->version, 'record_id' => $revision->id]);
         }
     }

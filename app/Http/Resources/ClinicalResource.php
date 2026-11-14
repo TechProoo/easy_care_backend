@@ -12,12 +12,18 @@ class ClinicalResource extends JsonResource
     {
         $version = $this->kind === 'entry' ? $this->entry?->templateVersion : null;
 
-        return ClinicalRecords::snapshot($this->resource) + [
+        $result = ClinicalRecords::snapshot($this->resource) + [
             'author_name' => $this->author?->name, 'finalizer_name' => $this->finalizedBy?->name,
             'superseded' => $this->resource->getAttribute('superseded') ?? $this->amendment()->finalized()->exists(),
             'body_mass_index' => $this->kind === 'vitals' ? $this->vitals?->bodyMassIndex() : null,
             'template_version' => $version === null ? null : ['id' => $version->id, 'template_id' => $version->clinical_template_id,
                 'code' => $version->template->code, 'version' => $version->version, 'title' => $version->title, 'fields' => (object) $version->fields],
         ];
+        if ($this->kind === 'prescription') {
+            $result['is_active_order'] = $this->status === 'signed' && ! $result['superseded']
+                && ($result['payload']['order_status'] ?? null) === 'active';
+        }
+
+        return $result;
     }
 }

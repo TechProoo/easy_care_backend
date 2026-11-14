@@ -94,7 +94,7 @@ class IdempotentCommands
                 $resource = $route === 'api.v1.staff-management.password-reset' ? $body['data']['user'] : $body['data'];
                 DB::table('idempotency_requests')->where('id', $id)->update([
                     'status' => 'completed', 'response_code' => $response->getStatusCode(),
-                    'resource_type' => $clinicalWrite ? 'clinical' : ($encounterWrite ? 'encounter' : ($appointmentWrite ? 'appointment' : ($recordWrite ? 'patient_record' : ($patientWrite ? 'patient' : ($fileWrite ? 'file' : 'staff'))))), 'resource_id' => $resource['id'],
+                    'resource_type' => $clinicalWrite ? (ClinicalRecords::isPrescription($request) ? 'prescription' : 'clinical') : ($encounterWrite ? 'encounter' : ($appointmentWrite ? 'appointment' : ($recordWrite ? 'patient_record' : ($patientWrite ? 'patient' : ($fileWrite ? 'file' : 'staff'))))), 'resource_id' => $resource['id'],
                     'outcome_id' => $recordWrite ? $resource['record_id'] : null,
                     'resource_version' => $resource['version'] ?? null, 'updated_at' => now('UTC'),
                 ]);
@@ -184,12 +184,12 @@ class IdempotentCommands
         $encounterWrite = EncounterFlow::isCommand($request->route()->getName());
         $clinicalWrite = ClinicalRecords::isCommand($request->route()->getName());
         if ($clinicalWrite) {
-            $clinical = ClinicalRecord::query()->visibleTo($actor)->where('encounter_id', $request->route('encounter'))
+            $clinical = ClinicalRecords::visibleFor($request, $actor)->where('encounter_id', $request->route('encounter'))
                 ->lockForUpdate()->findOrFail($record->resource_id);
             if ($clinical->version !== (int) $record->resource_version || $clinical->amendment()->finalized()->lockForUpdate()->exists()) {
                 throw new WriteConflict('idempotency_outdated', 'The original save completed, but this clinical record changed. Reload its latest record.');
             }
-            $response = (new ClinicalResource($clinical->load(ClinicalRecords::LOAD)))->response();
+            $response = (new ClinicalResource($clinical->load(ClinicalRecords::relationsFor($request))))->response();
         } elseif ($encounterWrite) {
             $visit = Encounter::query()->visibleTo($actor)->with(['patient', 'currentAssignment'])->lockForUpdate()->findOrFail($record->resource_id);
             if ($visit->version !== (int) $record->resource_version) {

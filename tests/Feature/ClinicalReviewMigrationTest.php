@@ -41,7 +41,7 @@ class ClinicalReviewMigrationTest extends TestCase
         $this->assertDatabaseCount('clinical_revisions', 0);
         $this->assertSame('Retained signed legacy note', $record->fresh()->entry->content);
         $this->seed(DatabaseSeeder::class);
-        $this->assertDatabaseCount('permissions', 34);
+        $this->assertDatabaseCount('permissions', 41);
         $this->assertDatabaseCount('role_permissions', 21);
         $this->assertDatabaseCount('permission_baselines', 4);
     }
